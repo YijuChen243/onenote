@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneNote 筆記查詢系統 v4</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; background: #f0f0f5; }
+
+        /* ── 主色 ── */
+        :root {
+            --purple: #6B21A8;
+            --purple-dark: #4C1D95;
+            --purple-light: #EDE9FE;
+        }
+
+        /* ── Navbar ── */
+        .navbar { background: linear-gradient(135deg, var(--purple-dark), var(--purple)); }
+
+        /* ── 卡片 ── */
+        .note-card {
+            transition: transform .18s, box-shadow .18s;
+            cursor: pointer;
+            border-left: 4px solid var(--purple);
+        }
+        .note-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 24px -6px rgba(107,33,168,.18);
+        }
+
+        /* ── 按鈕 ── */
+        .btn-primary {
+            background: var(--purple);
+            color: #fff;
+            transition: background .15s;
+        }
+        .btn-primary:hover { background: var(--purple-dark); }
+
+        /* ── 載入動畫 ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { animation: spin .8s linear infinite; }
+
+        /* ── 除錯面板 ── */
+        #debug-log {
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+        .log-ok   { color: #16a34a; }
+        .log-warn { color: #d97706; }
+        .log-err  { color: #dc2626; }
+        .log-info { color: #6b7280; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ══════════════ NAVBAR ══════════════ -->
+<nav class="navbar text-white px-6 py-4 shadow-lg">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 6h4l2 3-2 3h-4z"/><rect x="6" y="3" width="16" height="18" rx="2"/>
+                <line x1="10" y1="8" x2="18" y2="8"/><line x1="10" y1="12" x2="18" y2="12"/>
+                <line x1="10" y1="16" x2="14" y2="16"/>
+            </svg>
+            <span class="text-xl font-bold tracking-wider">OneNote Explorer
+                <span class="text-xs opacity-50 ml-1">v4.0</span>
+            </span>
+        </div>
+        <div class="flex items-center gap-3">
+
+            <!-- 除錯按鈕 -->
+            <button id="debug-toggle" title="顯示除錯日誌"
+                class="p-2 rounded-full hover:bg-white/20 transition text-sm">
+                🔍 日誌
+            </button>
+            <!-- 登入區 -->
+            <button id="login-btn"
+                class="bg-white text-purple-800 px-4 py-2 rounded-lg font-semibold hover:bg-purple-50 transition shadow flex items-center gap-2">
+                🔐 登入 Microsoft
+            </button>
+            <div id="user-info" class="hidden items-center gap-3">
+                <span id="username" class="text-sm font-medium bg-white/20 px-3 py-1 rounded-full"></span>
+                <button id="logout-btn"
+                    class="bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-red-600 transition">
+                    登出/重設
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ══════════════ 除錯日誌面板 ══════════════ -->
+<div id="debug-panel" class="hidden bg-gray-900 text-gray-300 px-6 py-3">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">📋 除錯日誌</span>
+            <button id="clear-log" class="text-xs text-gray-500 hover:text-gray-300">清除</button>
+        </div>
+        <div id="debug-log"></div>
+    </div>
+</div>
+
+<!-- ══════════════ 設定面板 ══════════════ -->
+<div id="settings-panel" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+        <div class="flex justify-between items-center mb-5">
+            <h2 class="text-xl font-bold text-gray-800">⚙️ Azure App 設定</h2>
+            <button id="settings-close" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        </div>
+
+        <!-- 說明區 -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm text-blue-800">
+            <p class="font-bold mb-2">📌 Azure Portal 必要設定</p>
+            <ol class="list-decimal list-inside space-y-1">
+                <li>進入 <strong>Azure Portal → 應用程式註冊</strong></li>
+                <li>選擇您的 App → <strong>驗證</strong></li>
+                <li>在「重新導向 URI」加入：<br>
+                    <code class="bg-blue-100 px-1 rounded" id="show-redirect-uri"></code>
+                </li>
+                <li><strong>API 權限</strong> 必須含：<code>User.Read</code>、<code>Notes.Read</code></li>
+                <li>點「授與管理員同意」（若為學校/公司帳戶）</li>
+            </ol>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                    Application (Client) ID
+                </label>
+                <input type="text" id="config-client-id"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+            </div>
+            <button id="save-config"
+                class="w-full btn-primary py-2.5 rounded-lg font-bold">
+                💾 儲存並重新載入
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════ 主內容 ══════════════ -->
+<main class="max-w-6xl mx-auto py-8 px-4">
+
+    <!-- 搜尋列 -->
+    <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-100">
+        <form id="search-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">🔍 關鍵字</label>
+                <input type="text" id="keyword" placeholder="搜尋筆記標題..."
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">📅 起始日期（選填）</label>
+                <input type="date" id="start-date"
+                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+            </div>
+            <div>
+                <button type="submit" id="search-btn"
+                    class="w-full btn-primary py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-md">
+                    🔎 搜尋筆記
+                </button>
+            </div>
+        </form>
+
+        <!-- 搜尋模式說明 -->
+        <p class="text-xs text-gray-400 mt-3">
+            💡 搜尋模式：先嘗試 Graph API 全文搜尋，若不支援則改為「抓取最多 200 筆，依標題篩選」。
+        </p>
+    </div>
+
+    <!-- 狀態列 -->
+    <div id="status-bar" class="hidden bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+        <div class="spinner w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full"></div>
+        <span id="status-text" class="text-purple-700 text-sm font-medium">載入中...</span>
+    </div>
+
+    <!-- 錯誤訊息 -->
+    <div id="error-bar" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+        <p class="font-bold text-red-700 mb-1">❌ 發生錯誤</p>
+        <p id="error-text" class="text-red-600 text-sm"></p>
+        <p id="error-hint" class="text-red-500 text-xs mt-2"></p>
+    </div>
+
+    <!-- 結果數量 -->
+    <div id="result-count" class="hidden text-sm text-gray-500 mb-4"></div>
+
+    <!-- 結果格 -->
+    <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div id="placeholder-msg" class="col-span-full text-center py-20 bg-white rounded-2xl border border-gray-200">
+            <div class="text-5xl mb-4">📓</div>
+            <h3 class="text-lg font-bold text-gray-700">準備好了！</h3>
+            <p class="text-gray-400 mt-2 text-sm">登入後輸入關鍵字，即可搜尋您的 OneNote 筆記</p>
+        </div>
+    </div>
+</main>
+
+<!-- ══════════════ SCRIPT ══════════════ -->
+<script>
+// ── 工具：除錯日誌 ──────────────────────────────────────────
+const debugLog = document.getElementById('debug-log');
+function log(msg, type = 'info') {
+    const line = document.createElement('div');
+    line.className = `log-${type}`;
+    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    debugLog.appendChild(line);
+    debugLog.scrollTop = debugLog.scrollHeight;
+    console.log(`[${type.toUpperCase()}] ${msg}`);
+}
+
+document.getElementById('debug-toggle').onclick = () => {
+    document.getElementById('debug-panel').classList.toggle('hidden');
+};
+document.getElementById('clear-log').onclick = () => debugLog.innerHTML = '';
+
+// ── MSAL 初始化 ────────────────────────────────────────────
+// Client ID 已內建，使用者不需要自行設定
+const DEFAULT_CLIENT_ID = 'adb3f3d3-a15a-43a5-9077-b95c30f654ff';
+let activeClientId = localStorage.getItem('onenote_client_id') || DEFAULT_CLIENT_ID;
+const configInput = document.getElementById('config-client-id');
+configInput.value = activeClientId;
+document.getElementById('show-redirect-uri').textContent = window.location.origin + window.location.pathname;
+
+log(`目前頁面 origin: ${window.location.origin}`, 'info');
+log(`目前 Client ID: ${activeClientId || '(未設定)'}`, activeClientId ? 'info' : 'warn');
+
+let msalInstance = null;
+
+function initMsal(clientId) {
+    if (!clientId) {
+        log('Client ID 為空，跳過 MSAL 初始化', 'warn');
+        return;
+    }
+    try {
+        msalInstance = new msal.PublicClientApplication({
+            auth: {
+                clientId: clientId,
+                authority: 'https://login.microsoftonline.com/common',
+                redirectUri: window.location.origin + window.location.pathname
+            },
+            cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
+        });
+        log('MSAL 初始化成功', 'ok');
+        checkUser();
+    } catch (e) {
+        log('MSAL 初始化失敗: ' + e.message, 'err');
+    }
+}
+
+initMsal(activeClientId);
+
+// ── 登入狀態 ────────────────────────────────────────────────
+const loginRequest = { scopes: ['User.Read', 'Notes.Read'] };
+
+function checkUser() {
+    if (!msalInstance) return;
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+        document.getElementById('login-btn').classList.add('hidden');
+        const ui = document.getElementById('user-info');
+        ui.classList.remove('hidden');
+        ui.classList.add('flex');
+        document.getElementById('username').textContent = `👤 ${accounts[0].name || accounts[0].username}`;
+        log(`已登入帳戶：${accounts[0].username}`, 'ok');
+    }
+}
+
+document.getElementById('login-btn').addEventListener('click', async () => {
+    if (!msalInstance) return alert('請先在設定中填入 Client ID！');
+    try {
+        log('開始登入...', 'info');
+        await msalInstance.loginPopup(loginRequest);
+        log('登入成功', 'ok');
+        checkUser();
+    } catch (err) {
+        log('登入失敗: ' + err.message, 'err');
+        alert('登入失敗：' + err.message);
+    }
+});
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.reload();
+});
+
+// ── 設定面板 ────────────────────────────────────────────────
+document.getElementById('settings-toggle').onclick = () =>
+    document.getElementById('settings-panel').classList.remove('hidden');
+document.getElementById('settings-close').onclick = () =>
+    document.getElementById('settings-panel').classList.add('hidden');
+document.getElementById('save-config').onclick = () => {
+    const val = configInput.value.trim() || DEFAULT_CLIENT_ID;
+    localStorage.setItem('onenote_client_id', val);
+    window.location.reload();
+};
+
+// ── UI 輔助 ─────────────────────────────────────────────────
+function setStatus(msg) {
+    document.getElementById('status-bar').classList.remove('hidden');
+    document.getElementById('status-text').textContent = msg;
+    document.getElementById('error-bar').classList.add('hidden');
+}
+function hideStatus() {
+    document.getElementById('status-bar').classList.add('hidden');
+}
+function showError(msg, hint = '') {
+    hideStatus();
+    const bar = document.getElementById('error-bar');
+    bar.classList.remove('hidden');
+    document.getElementById('error-text').textContent = msg;
+    document.getElementById('error-hint').textContent = hint;
+    log(`錯誤：${msg}${hint ? ' | ' + hint : ''}`, 'err');
+}
+
+// ── 主搜尋邏輯 ──────────────────────────────────────────────
+document.getElementById('search-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!msalInstance) return alert('請先在設定中填入 Client ID！');
+
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length === 0) return alert('請先登入 Microsoft 帳戶！');
+
+    const keyword   = document.getElementById('keyword').value.trim();
+    const startDate = document.getElementById('start-date').value;
+
+    if (!keyword) return alert('請輸入搜尋關鍵字！');
+
+    // 清空舊結果
+    document.getElementById('results-grid').innerHTML = '';
+    document.getElementById('result-count').classList.add('hidden');
+    document.getElementById('error-bar').classList.add('hidden');
+    setStatus('正在取得存取權杖...');
+    log(`開始搜尋：「${keyword}」`, 'info');
+
+    try {
+        // ① 取得 Token
+        let tokenResponse;
+        try {
+            tokenResponse = await msalInstance.acquireTokenSilent({
+                ...loginRequest, account: accounts[0]
+            });
+            log('Token 靜默取得成功', 'ok');
+        } catch (silentErr) {
+            log('靜默取得失敗，改用彈出視窗: ' + silentErr.message, 'warn');
+            tokenResponse = await msalInstance.acquireTokenPopup(loginRequest);
+            log('Token 彈出取得成功', 'ok');
+        }
+        const token = tokenResponse.accessToken;
+
+        let pages = [];
+
+        // ② 嘗試 Graph API $search（僅搜尋標題）
+        // 注意：個人 Microsoft 帳號不支援 $search，商業/教育帳號才支援
+        setStatus('正在呼叫 Graph API 搜尋...');
+
+        const searchUrl = `https://graph.microsoft.com/v1.0/me/onenote/pages?$search="${encodeURIComponent(keyword)}"&$select=id,title,lastModifiedDateTime,links&$top=50`;
+        log(`搜尋 URL: ${searchUrl}`, 'info');
+
+        const res = await fetch(searchUrl, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+
+        log(`Graph API 回應狀態：${res.status}`, res.ok ? 'ok' : 'warn');
+
+        if (res.ok) {
+            const data = await res.json();
+            pages = data.value || [];
+            log(`$search 模式找到 ${pages.length} 筆`, 'ok');
+        } else {
+            // ③ 回退：抓全部（最多200筆）並在前端過濾標題
+            const errBody = await res.text();
+            log(`$search 不支援 (${res.status})，改用前端過濾模式。回應：${errBody.substring(0, 100)}`, 'warn');
+            setStatus('改用前端過濾模式，抓取筆記中（最多 200 筆）...');
+
+            // 分頁抓取，最多 200 筆
+            let nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100`;
+            let allPages = [];
+            let pageCount = 0;
+
+            while (nextLink && pageCount < 2) {
+                const fbRes = await fetch(nextLink, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!fbRes.ok) {
+                    const fbErr = await fbRes.text();
+                    throw new Error(`無法讀取筆記列表 (${fbRes.status})：${fbErr.substring(0, 120)}`);
+                }
+                const fbData = await fbRes.json();
+                allPages = allPages.concat(fbData.value || []);
+                nextLink = fbData['@odata.nextLink'] || null;
+                pageCount++;
+                log(`已取得 ${allPages.length} 筆`, 'info');
+            }
+
+            // 前端過濾標題
+            const kw = keyword.toLowerCase();
+            pages = allPages.filter(p => p.title && p.title.toLowerCase().includes(kw));
+            log(`前端過濾後剩 ${pages.length} 筆（共掃描 ${allPages.length} 筆）`, 'ok');
+        }
+
+        // ④ 日期過濾
+        if (startDate) {
+            const startTs = new Date(startDate).getTime();
+            const before = pages.length;
+            pages = pages.filter(p => new Date(p.lastModifiedDateTime).getTime() >= startTs);
+            log(`日期過濾：${before} → ${pages.length} 筆`, 'info');
+        }
+
+        hideStatus();
+
+        // ⑤ 顯示結果
+        if (pages.length === 0) {
+            document.getElementById('results-grid').innerHTML = `
+                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-gray-200">
+                    <div class="text-5xl mb-4">🔍</div>
+                    <h3 class="text-lg font-bold text-gray-700">找不到「${keyword}」的相關筆記</h3>
+                    <p class="text-gray-400 text-sm mt-2">請嘗試其他關鍵字，或確認筆記標題是否包含此字詞</p>
+                </div>`;
+        } else {
+            const countEl = document.getElementById('result-count');
+            countEl.textContent = `找到 ${pages.length} 筆符合的筆記`;
+            countEl.classList.remove('hidden');
+            renderResults(pages);
+        }
+
+    } catch (err) {
+        let hint = '';
+        if (err.message.includes('403')) hint = '→ 可能是 Notes.Read 權限未授與，請至 Azure Portal 授與並重新登入。';
+        else if (err.message.includes('401')) hint = '→ Token 無效，請重新登入。';
+        else if (err.message.includes('popup')) hint = '→ 彈出視窗被封鎖，請允許此網頁的彈出視窗。';
+        showError(err.message, hint);
+    }
+});
+
+// ── 渲染卡片 ────────────────────────────────────────────────
+function renderResults(pages) {
+    const grid = document.getElementById('results-grid');
+    pages.forEach(page => {
+        const date  = new Date(page.lastModifiedDateTime).toLocaleDateString('zh-TW');
+        const webUrl = page.links?.oneNoteWebUrl?.href || '#';
+
+        const card = document.createElement('div');
+        card.className = 'note-card bg-white p-5 rounded-xl shadow-sm flex flex-col';
+        card.onclick = () => window.open(webUrl, '_blank');
+        card.innerHTML = `
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-full">📄 OneNote</span>
+                <span class="text-xs text-gray-400">🗓 ${date}</span>
+            </div>
+            <h3 class="font-bold text-gray-800 text-base mb-3 leading-snug">${escapeHtml(page.title || '無標題')}</h3>
+            <div class="mt-auto pt-3 border-t border-gray-100 flex items-center text-purple-600 text-sm font-medium gap-1">
+                <span>開啟筆記</span>
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
