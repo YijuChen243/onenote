@@ -290,8 +290,7 @@ document.getElementById('logout-btn').addEventListener('click', () => {
 });
 
 // ── 設定面板 ────────────────────────────────────────────────
-document.getElementById('settings-toggle').onclick = () =>
-    document.getElementById('settings-panel').classList.remove('hidden');
+// settings-toggle 已移除（Client ID 已內建），僅保留關閉與儲存功能
 document.getElementById('settings-close').onclick = () =>
     document.getElementById('settings-panel').classList.add('hidden');
 document.getElementById('save-config').onclick = () => {
