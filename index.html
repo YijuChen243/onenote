@@ -283,10 +283,34 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => {
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    if (!msalInstance) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.reload();
+        return;
+    }
+    const accounts = msalInstance.getAllAccounts();
     localStorage.clear();
     sessionStorage.clear();
-    window.location.reload();
+
+    if (accounts.length > 0) {
+        try {
+            // popup 登出，讓使用者可以選擇切換帳號
+            await msalInstance.logoutPopup({
+                account: accounts[0],
+                postLogoutRedirectUri: window.location.href
+            });
+        } catch (e) {
+            // popup 被封鎖時改用跳轉登出
+            msalInstance.logoutRedirect({
+                account: accounts[0],
+                postLogoutRedirectUri: window.location.href
+            });
+        }
+    } else {
+        window.location.reload();
+    }
 });
 
 // ── 設定面板 ────────────────────────────────────────────────
