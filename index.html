@@ -642,10 +642,10 @@ async function fetchOneNoteContent(item, msToken) {
     const srcRe = /(?:data-fullres-src|src)=["']([^"']+)["']/i;
     let m;
     while ((m = imgTagRe.exec(html)) !== null) {
+        log('RAW IMG TAG: ' + m[0], 'info'); // 印完整 img tag
         const sm = srcRe.exec(m[0]);
         if (sm) {
             rawImgSrcs.push(sm[1]);
-            log('圖片完整src: ' + sm[1], 'info'); // 印完整 URL 除錯
         }
     }
 
