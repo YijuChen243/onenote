@@ -752,10 +752,12 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
         try {
             const content = await fetchItemContent(item, msToken);
             const summary = await callClaudeForSummary(item.title || '無標題', getFileType(item), content);
+            summaryResults[i] = { item, summary, isError: false };
             showSummaryInCard(i, summary);
             log(`✓ 摘要完成：${item.title}`, 'ok');
         } catch(e) {
             log(`✗ 摘要失敗：${item.title} — ${e.message}`, 'err');
+            summaryResults[i] = { item, summary: e.message, isError: true };
             showSummaryInCard(i, e.message, true);
         }
 
@@ -768,7 +770,221 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
     progressItem.textContent = `✨ 所有 ${total} 個項目摘要完成`;
     btn.disabled = false;
     btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ✨ 重新摘要`;
+    showDownloadButtons(sorted, summaryResults);
 });
+
+// ── 儲存摘要結果供下載
+let summaryResults = [];
+
+
+// ── 下載按鈕區
+function showDownloadButtons(items, summaries) {
+    let wrap = document.getElementById('download-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'download-wrap';
+        const progressWrap = document.getElementById('summary-progress-wrap');
+        progressWrap.insertAdjacentElement('afterend', wrap);
+    }
+    wrap.style.cssText = 'background:#fff;border:1px solid #e4e4ef;border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 12px rgba(15,15,26,.06);margin-top:0;';
+    wrap.innerHTML = `
+        <div>
+            <p style="font-weight:700;font-size:0.95rem;color:#1e1e35;">📥 匯出摘要報告</p>
+            <p style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">將所有 ${items.length} 筆摘要彙整成檔案下載</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="dl-word-btn" style="background:#0369a1;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                下載 Word (.docx)
+            </button>
+            <button id="dl-pdf-btn" style="background:#be123c;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                下載 PDF
+            </button>
+        </div>`;
+    document.getElementById('dl-word-btn').onclick = () => downloadWord(items, summaries);
+    document.getElementById('dl-pdf-btn').onclick  = () => downloadPdf(items, summaries);
+}
+
+// ── BUILD REPORT DATA
+function buildReportData(items, summaries) {
+    const keyword = document.getElementById('keyword').value.trim();
+    const now = new Date().toLocaleString('zh-TW');
+    const rows = items.map((item, i) => {
+        const sr = summaries[i] || {};
+        return {
+            title:   item.title || '無標題',
+            type:    TYPE_META[getFileType(item)]?.label || getFileType(item),
+            source:  item._source === 'onenote' ? 'OneNote' : 'OneDrive',
+            date:    new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW'),
+            summary: sr.isError ? `（摘要失敗：${sr.summary}）` : (sr.summary || '（尚未摘要）'),
+            url:     item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '') : (item.webUrl || '')
+        };
+    });
+    return { keyword, now, rows };
+}
+
+// ── DOWNLOAD WORD
+async function downloadWord(items, summaries) {
+    const btn = document.getElementById('dl-word-btn');
+    btn.textContent = '⏳ 產生中...'; btn.disabled = true;
+    try {
+        // 動態載入 docx.js
+        if (!window.docx) {
+            await loadScript('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js');
+        }
+        const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } = window.docx;
+
+        const { keyword, now, rows } = buildReportData(items, summaries);
+
+        const children = [
+            new Paragraph({
+                text: '檔案摘要報告',
+                heading: HeadingLevel.TITLE,
+                alignment: AlignmentType.CENTER,
+            }),
+            new Paragraph({
+                children: [
+                    new TextRun({ text: `搜尋關鍵字：${keyword}　　產生時間：${now}`, color: '666666', size: 20 })
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 }
+            }),
+        ];
+
+        rows.forEach((row, idx) => {
+            children.push(
+                new Paragraph({
+                    children: [
+                        new TextRun({ text: `${idx + 1}. ${row.title}`, bold: true, size: 26, color: '1e1e35' })
+                    ],
+                    spacing: { before: 300, after: 80 },
+                    heading: HeadingLevel.HEADING_2
+                }),
+                new Paragraph({
+                    children: [
+                        new TextRun({ text: `類型：${row.type}　　來源：${row.source}　　修改日期：${row.date}`, color: '888888', size: 18 })
+                    ],
+                    spacing: { after: 120 }
+                }),
+                new Paragraph({
+                    children: [
+                        new TextRun({ text: '【AI 摘要】　', bold: true, color: '5b4cf5', size: 20 }),
+                        new TextRun({ text: row.summary, size: 20 })
+                    ],
+                    spacing: { after: 100 }
+                }),
+                new Paragraph({
+                    children: [
+                        new TextRun({ text: `🔗 ${row.url}`, color: '0369a1', size: 18 })
+                    ],
+                    spacing: { after: 200 }
+                })
+            );
+        });
+
+        const doc = new Document({ sections: [{ properties: {}, children }] });
+        const blob = await Packer.toBlob(doc);
+        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.docx`);
+        log('Word 下載成功', 'ok');
+    } catch(e) {
+        log('Word 下載失敗：' + e.message, 'err');
+        alert('Word 產生失敗：' + e.message);
+    } finally {
+        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 下載 Word (.docx)`;
+        btn.disabled = false;
+    }
+}
+
+// ── DOWNLOAD PDF
+async function downloadPdf(items, summaries) {
+    const btn = document.getElementById('dl-pdf-btn');
+    btn.textContent = '⏳ 產生中...'; btn.disabled = true;
+    try {
+        if (!window.jspdf) {
+            await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+        }
+        // jsPDF 不支援中文，用 HTML → 列印方式產生 PDF
+        const { keyword, now, rows } = buildReportData(items, summaries);
+
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  body { font-family: 'Microsoft JhengHei','PingFang TC',sans-serif; margin:40px; color:#1e1e35; font-size:13px; line-height:1.7; }
+  h1 { font-size:22px; text-align:center; margin-bottom:4px; }
+  .meta { text-align:center; color:#888; font-size:11px; margin-bottom:32px; }
+  .item { border:1px solid #e4e4ef; border-radius:10px; padding:16px 20px; margin-bottom:16px; break-inside:avoid; }
+  .item-title { font-size:15px; font-weight:700; margin-bottom:6px; }
+  .item-info { font-size:11px; color:#888; margin-bottom:8px; }
+  .item-summary-label { font-size:11px; font-weight:700; color:#5b4cf5; margin-bottom:4px; }
+  .item-summary { font-size:12px; color:#374151; background:#faf5ff; border-left:3px solid #7c3aed; padding:8px 12px; border-radius:0 6px 6px 0; }
+  .item-url { font-size:10px; color:#0369a1; margin-top:8px; word-break:break-all; }
+  .idx { display:inline-block; background:#5b4cf5; color:#fff; border-radius:4px; padding:1px 7px; font-size:11px; margin-right:6px; }
+</style></head><body>
+<h1>📄 檔案摘要報告</h1>
+<div class="meta">搜尋關鍵字：${keyword}　　產生時間：${now}　　共 ${rows.length} 筆</div>`;
+
+        rows.forEach((row, idx) => {
+            html += `<div class="item">
+  <div class="item-title"><span class="idx">${idx+1}</span>${row.title}</div>
+  <div class="item-info">${row.type} &nbsp;·&nbsp; ${row.source} &nbsp;·&nbsp; 修改：${row.date}</div>
+  <div class="item-summary-label">★ AI 摘要</div>
+  <div class="item-summary">${row.summary.replace(/</g,'&lt;')}</div>
+  ${row.url ? `<div class="item-url">🔗 ${row.url}</div>` : ''}
+</div>`;
+        });
+        html += '</body></html>';
+
+        // 用隱藏 iframe 列印成 PDF
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;height:1123px;';
+        document.body.appendChild(iframe);
+        iframe.contentDocument.open();
+        iframe.contentDocument.write(html);
+        iframe.contentDocument.close();
+        await new Promise(r => setTimeout(r, 800));
+
+        // Blob via data URI for download
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.html`);
+        document.body.removeChild(iframe);
+
+        // 也另開視窗讓使用者可以用瀏覽器直接存 PDF
+        const win = window.open('', '_blank');
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { try { win.print(); } catch{} }, 600);
+
+        log('PDF（列印頁）已開啟', 'ok');
+    } catch(e) {
+        log('PDF 失敗：' + e.message, 'err');
+        alert('PDF 產生失敗：' + e.message);
+    } finally {
+        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 下載 PDF`;
+        btn.disabled = false;
+    }
+}
+
+// ── HELPERS
+function loadScript(src) {
+    return new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = res; s.onerror = () => rej(new Error('載入失敗：' + src));
+        document.head.appendChild(s);
+    });
+}
+function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+function formatDate() {
+    const d = new Date();
+    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
 
 // ── UI HELPERS
 function setStatus(msg) {
