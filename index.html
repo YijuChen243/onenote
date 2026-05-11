@@ -635,30 +635,66 @@ async function fetchOneNoteContent(item, msToken) {
     const r = await fetch('https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
     if (!r.ok) return { text: null, imgUrls: [] };
     const html = await r.text();
+
+    // 先用 regex 從原始 HTML 字串抓 img src（含相對路徑）
+    // OneNote 圖片 src 格式通常是 ../resources/xxx/content 或完整 Graph URL
+    const rawImgSrcs = [];
+    const imgTagRe = /<img[^>]+>/gi;
+    const srcRe = /(?:src|data-fullres-src)\s*=\s*["']([^"']+)["']/i;
+    let m;
+    while ((m = imgTagRe.exec(html)) !== null) {
+        const tag = m[0];
+        log('IMG tag: ' + tag.substring(0, 120), 'info');
+        const sm = srcRe.exec(tag);
+        if (sm) rawImgSrcs.push(sm[1]);
+    }
+
+    // 把各種格式都轉成完整 Graph API URL
+    const BASE = 'https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id;
+    const imgUrls = rawImgSrcs.map(src => {
+        if (src.startsWith('https://')) return src;                     // 已是完整 URL
+        if (src.startsWith('../resources/')) {                          // ../resources/xxx/content
+            const rid = src.replace('../resources/', '').replace('/content','');
+            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + rid + '/content';
+        }
+        if (src.startsWith('./') || src.startsWith('resources/')) {    // ./resources/...
+            const rid = src.replace('./resources/','').replace('resources/','').replace('/content','');
+            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + rid + '/content';
+        }
+        // 其他：嘗試拼接
+        return BASE + '/' + src;
+    }).filter(u => u.includes('graph.microsoft.com') || u.startsWith('https://'));
+
+    log('OneNote 找到 ' + rawImgSrcs.length + ' 個 img src，有效 URL：' + imgUrls.length + ' 個', imgUrls.length > 0 ? 'ok' : 'warn');
+
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     const text = tmp.innerText.substring(0, 6000);
-    // 收集所有 <img> src（Graph API 資源 URL）
-    const imgs = Array.from(tmp.querySelectorAll('img'))
-        .map(el => el.getAttribute('src') || el.getAttribute('data-src-type') && el.getAttribute('data-fullres-src') || '')
-        .filter(s => s && s.startsWith('https://'));
-    log('OneNote 圖片數：' + imgs.length, 'info');
-    return { text, imgUrls: imgs };
+    return { text, imgUrls };
 }
 
 // 下載圖片並轉 base64（需帶 token）
 async function fetchImgAsBase64(url, msToken) {
     try {
+        log('下載圖片：' + url.substring(0, 80), 'info');
         const r = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
+        log('圖片回應：' + r.status + ' ' + r.headers.get('content-type'), r.ok ? 'ok' : 'warn');
         if (!r.ok) return null;
         const blob = await r.blob();
+        if (!blob.type.startsWith('image/')) {
+            log('非圖片類型：' + blob.type, 'warn');
+            return null;
+        }
         return new Promise(res => {
             const reader = new FileReader();
             reader.onload = () => res({ dataUrl: reader.result, b64: reader.result.split(',')[1], mimeType: blob.type });
             reader.onerror = () => res(null);
             reader.readAsDataURL(blob);
         });
-    } catch { return null; }
+    } catch(e) {
+        log('圖片下載錯誤：' + e.message, 'err');
+        return null;
+    }
 }
 
 async function fetchItemContent(item, msToken) {
