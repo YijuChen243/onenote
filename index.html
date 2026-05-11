@@ -649,21 +649,15 @@ async function fetchOneNoteContent(item, msToken) {
         if (sm) rawImgSrcs.push(sm[1]);
     }
 
-    // 把各種格式都轉成完整 Graph API URL
-    const BASE = 'https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id;
+    // URL 處理：src 已是完整 Graph URL，但可能是 /users('email') 格式，直接使用
+    // 若是相對路徑，轉成 /me/onenote/resources/xxx/content
     const imgUrls = rawImgSrcs.map(src => {
-        if (src.startsWith('https://')) return src;                     // 已是完整 URL
-        if (src.startsWith('../resources/')) {                          // ../resources/xxx/content
-            const rid = src.replace('../resources/', '').replace('/content','');
-            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + rid + '/content';
-        }
-        if (src.startsWith('./') || src.startsWith('resources/')) {    // ./resources/...
-            const rid = src.replace('./resources/','').replace('resources/','').replace('/content','');
-            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + rid + '/content';
-        }
-        // 其他：嘗試拼接
-        return BASE + '/' + src;
-    }).filter(u => u.includes('graph.microsoft.com') || u.startsWith('https://'));
+        if (src.startsWith('https://')) return src;  // 已是完整 URL，直接用
+        // 相對路徑：../resources/xxx/content
+        const match = src.match(/resources\/([^\/]+)\/content/);
+        if (match) return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + match[1] + '/content';
+        return null;
+    }).filter(Boolean);
 
     log('OneNote 找到 ' + rawImgSrcs.length + ' 個 img src，有效 URL：' + imgUrls.length + ' 個', imgUrls.length > 0 ? 'ok' : 'warn');
 
@@ -676,9 +670,12 @@ async function fetchOneNoteContent(item, msToken) {
 // 下載圖片並轉 base64（需帶 token）
 async function fetchImgAsBase64(url, msToken) {
     try {
-        log('下載圖片：' + url.substring(0, 80), 'info');
-        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
-        log('圖片回應：' + r.status + ' ' + r.headers.get('content-type'), r.ok ? 'ok' : 'warn');
+        // 統一把 /users('xxx')/onenote 換成 /me/onenote，避免 400
+        const normalizedUrl = url.replace(/\/users\('[^']*'\)\/onenote/, '/me/onenote')
+                                  .replace(/\/users\("[^"]*"\)\/onenote/, '/me/onenote');
+        log('下載圖片：' + normalizedUrl.substring(0, 90), 'info');
+        const r = await fetch(normalizedUrl, { headers: { Authorization: 'Bearer ' + msToken } });
+        log('圖片回應：' + r.status + ' ' + (r.headers.get('content-type')||''), r.ok ? 'ok' : 'warn');
         if (!r.ok) return null;
         const blob = await r.blob();
         if (!blob.type.startsWith('image/')) {
