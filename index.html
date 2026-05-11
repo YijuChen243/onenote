@@ -630,14 +630,42 @@ document.getElementById('search-btn').addEventListener('click', async () => {
 // ════ AI SUMMARY ════
 let summaryResults = [];
 
+// OneNote: 抓 HTML 並分離文字 + 圖片 URL
+async function fetchOneNoteContent(item, msToken) {
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
+    if (!r.ok) return { text: null, imgUrls: [] };
+    const html = await r.text();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.innerText.substring(0, 6000);
+    // 收集所有 <img> src（Graph API 資源 URL）
+    const imgs = Array.from(tmp.querySelectorAll('img'))
+        .map(el => el.getAttribute('src') || el.getAttribute('data-src-type') && el.getAttribute('data-fullres-src') || '')
+        .filter(s => s && s.startsWith('https://'));
+    log('OneNote 圖片數：' + imgs.length, 'info');
+    return { text, imgUrls: imgs };
+}
+
+// 下載圖片並轉 base64（需帶 token）
+async function fetchImgAsBase64(url, msToken) {
+    try {
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
+        if (!r.ok) return null;
+        const blob = await r.blob();
+        return new Promise(res => {
+            const reader = new FileReader();
+            reader.onload = () => res({ dataUrl: reader.result, b64: reader.result.split(',')[1], mimeType: blob.type });
+            reader.onerror = () => res(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch { return null; }
+}
+
 async function fetchItemContent(item, msToken) {
     try {
         if (item._source === 'onenote') {
-            const r = await fetch('https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
-            if (!r.ok) return null;
-            const tmp = document.createElement('div');
-            tmp.innerHTML = await r.text();
-            return tmp.innerText.substring(0, 6000);
+            const { text } = await fetchOneNoteContent(item, msToken);
+            return text;
         }
         const type = getFileType(item);
         if (type === 'pdf' || type === 'other') return null;
@@ -721,6 +749,24 @@ function showLoadingInCard(idx, title) {
     area.innerHTML = '<div class="summary-loading"><div class="mini-spinner"></div><span>分析「' + escHtml(title.substring(0,20)) + '」中...</span></div>';
 }
 
+function showNoteResultInCard(idx, summary, noteImgs) {
+    const area = document.getElementById('summary-' + idx);
+    if (!area) return;
+    let html = '<div class="summary-box"><div class="summary-label">★ AI 摘要</div><p>' + escHtml(summary) + '</p></div>';
+    if (noteImgs && noteImgs.length > 0) {
+        html += '<div style="margin-top:8px;"><div class="summary-label" style="margin-bottom:6px;">🖼️ 內嵌圖片分析（' + noteImgs.length + ' 張）</div>';
+        noteImgs.forEach(img => {
+            html += '<div style="border:1px solid #e9d5ff;border-radius:10px;overflow:hidden;margin-bottom:8px;">' +
+                '<div style="background:#5b4cf5;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;">圖片 ' + img.idx + '</div>' +
+                '<img src="' + img.dataUrl + '" style="width:100%;display:block;max-height:200px;object-fit:contain;background:#f8f8f8;">' +
+                '<div style="padding:8px 12px;font-size:.78rem;line-height:1.65;color:#374151;background:#faf5ff;">' + escHtml(img.description) + '</div>' +
+                '</div>';
+        });
+        html += '</div>';
+    }
+    area.innerHTML = html;
+}
+
 document.getElementById('ai-summarize-btn').addEventListener('click', async () => {
     if (!anthropicKey) return alert('請先至 ⚙️ 設定填入 Anthropic API Key！');
     if (!allResults.length) return;
@@ -767,6 +813,35 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
                 const summary = pages.map(p => '第' + p.pageNum + '頁：' + p.description).join('\n');
                 summaryResults[i] = { item, summary, isError:false, pdfPages: pages };
                 showSummaryInCard(i, summary);
+            } else if (item._source === 'onenote' && anthropicKey) {
+                // OneNote：文字摘要 + 內嵌圖片 Vision 分析
+                pItem.textContent = '📥 讀取 OneNote：' + item.title;
+                const { text, imgUrls } = await fetchOneNoteContent(item, msToken);
+                const summary = await summarizeText(item.title || '無標題', type, text);
+
+                // 下載並分析圖片（最多 pdfMaxPages 張）
+                const noteImgs = [];
+                const imgLimit = Math.min(imgUrls.length, pdfMaxPages);
+                for (let pi = 0; pi < imgLimit; pi++) {
+                    pItem.textContent = '🖼️ 分析第 ' + (pi+1) + '/' + imgLimit + ' 張圖片';
+                    const imgData = await fetchImgAsBase64(imgUrls[pi], msToken);
+                    if (!imgData) { log('圖片下載失敗：' + imgUrls[pi].substring(0,60), 'warn'); continue; }
+                    const mime = imgData.mimeType && imgData.mimeType.startsWith('image/') ? imgData.mimeType : 'image/png';
+                    try {
+                        const desc = await callClaude([{ role:'user', content:[
+                            { type:'image', source:{ type:'base64', media_type: mime, data: imgData.b64 } },
+                            { type:'text', text:'這張圖片來自 OneNote 筆記「' + item.title + '」。用繁體中文 2～4 句描述圖片內容（含圖表數據、文字、示意圖等重點）。直接輸出，不要前言。' }
+                        ]}], 300);
+                        noteImgs.push({ dataUrl: imgData.dataUrl, description: desc, idx: pi+1 });
+                    } catch(ve) {
+                        log('圖片分析失敗：' + ve.message, 'warn');
+                        noteImgs.push({ dataUrl: imgData.dataUrl, description: '（分析失敗：' + ve.message + '）', idx: pi+1 });
+                    }
+                    if (pi < imgLimit-1) await sleep(600);
+                }
+
+                summaryResults[i] = { item, summary, isError:false, noteImgs };
+                showNoteResultInCard(i, summary, noteImgs);
             } else {
                 const content = await fetchItemContent(item, msToken);
                 const summary = await summarizeText(item.title || '無標題', type, content);
@@ -820,7 +895,8 @@ function buildReportHtml(items, summaries) {
         const date = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
         const url  = item._source === 'onenote' ? (item.links && item.links.oneNoteWebUrl ? item.links.oneNoteWebUrl.href : '') : (item.webUrl || '');
         const txt  = sr.isError ? '（處理失敗：' + sr.summary + '）' : (sr.summary || '（尚未摘要）');
-        const hasPdf = !sr.isError && sr.pdfPages && sr.pdfPages.length > 0;
+        const hasPdf  = !sr.isError && sr.pdfPages  && sr.pdfPages.length > 0;
+        const hasNote = !sr.isError && sr.noteImgs  && sr.noteImgs.length > 0;
         let sect = hasPdf
             ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:0 20px 20px;">' +
               sr.pdfPages.map(pg =>
@@ -831,6 +907,19 @@ function buildReportHtml(items, summaries) {
                   '</div>'
               ).join('') + '</div>'
             : '<div style="margin:0 20px 18px;font-size:13px;line-height:1.75;color:#374151;background:#faf5ff;border-left:3px solid #7c3aed;padding:10px 14px;border-radius:0 8px 8px 0;">' + txt.replace(/</g,'&lt;').replace(/\n/g,'<br>') + '</div>';
+        // OneNote 圖片附加到 sect 後面
+        if (hasNote) {
+            sect += '<div style="padding:0 20px 20px;">';
+            sect += '<div style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">🖼️ 內嵌圖片分析</div>';
+            sr.noteImgs.forEach(img => {
+                sect += '<div style="border:1px solid #e9d5ff;border-radius:10px;overflow:hidden;margin-bottom:12px;">' +
+                    '<div style="background:#5b4cf5;color:#fff;font-size:11px;font-weight:700;padding:5px 12px;">圖片 ' + img.idx + '</div>' +
+                    '<img src="' + img.dataUrl + '" style="width:100%;display:block;">' +
+                    '<div style="padding:10px 12px;font-size:12px;line-height:1.65;color:#374151;background:#faf5ff;">' + img.description.replace(/</g,'&lt;').replace(/\n/g,'<br>') + '</div>' +
+                    '</div>';
+            });
+            sect += '</div>';
+        }
         body +=
             '<div style="background:#fff;border:1px solid #e4e4ef;border-radius:16px;overflow:hidden;break-inside:avoid;margin-bottom:20px;">' +
             '<div style="padding:16px 20px 10px;border-bottom:1px solid #f1f1f8;">' +
