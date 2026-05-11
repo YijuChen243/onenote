@@ -650,26 +650,47 @@ async function callClaudeForSummary(title, type, content) {
         prompt = `你是一個文件助理。根據以下「${typeLabel}」文件的標題，用繁體中文推測並寫出 1～2 句這份文件可能的用途或內容簡述。\n\n文件標題：${title}\n\n請直接輸出推測描述，不要加前言。`;
     }
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 300,
-            messages: [{ role: 'user', content: prompt }]
-        })
-    });
+    let res;
+    try {
+        res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': anthropicKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-5',
+                max_tokens: 300,
+                messages: [{ role: 'user', content: prompt }]
+            })
+        });
+    } catch(netErr) {
+        // 網路層錯誤（CORS、斷線等）
+        log(`Claude API 網路錯誤：${netErr.message}`, 'err');
+        throw new Error(`網路錯誤：${netErr.message}。若為 CORS 問題，請確認 API Key 正確。`);
+    }
+
+    const rawText = await res.text();
+    log(`Claude API 回應 (${res.status})：${rawText.substring(0, 120)}`, res.ok ? 'info' : 'err');
 
     if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error?.message || `API 錯誤 (${res.status})`);
+        let errMsg = `API 錯誤 (${res.status})`;
+        try {
+            const errJson = JSON.parse(rawText);
+            if (errJson?.error?.message) errMsg = errJson.error.message;
+            else if (errJson?.message) errMsg = errJson.message;
+        } catch {}
+        // 常見錯誤友善提示
+        if (res.status === 401) errMsg = 'API Key 無效，請至設定重新填入正確的 Anthropic API Key';
+        else if (res.status === 403) errMsg = 'API Key 權限不足或已停用';
+        else if (res.status === 429) errMsg = '請求太頻繁，請稍後再試（Rate limit）';
+        else if (res.status === 400) errMsg = `請求格式錯誤：${errMsg}`;
+        throw new Error(errMsg);
     }
-    const data = await res.json();
+
+    const data = JSON.parse(rawText);
     return data.content?.[0]?.text?.trim() || '（無法取得摘要）';
 }
 
