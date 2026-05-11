@@ -3,149 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OneNote & OneDrive Explorer v5.1</title>
+    <title>OneNote & OneDrive Explorer v5.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+    <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --ink:      #0f0f1a;
-            --ink-2:    #1e1e35;
-            --ink-3:    #2d2d4e;
-            --surface:  #f5f5f8;
-            --card:     #ffffff;
-            --accent:   #5b4cf5;
-            --accent-2: #8b5cf6;
-            --glow:     rgba(91,76,245,0.18);
-            --amber:    #f59e0b;
-            --teal:     #14b8a6;
-            --rose:     #f43f5e;
-            --sky:      #0ea5e9;
-            --emerald:  #10b981;
-            --border:   #e4e4ef;
-        }
-        * { box-sizing: border-box; }
-        body { font-family: 'Sora', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; }
-
-        /* NAVBAR */
-        .navbar { background: var(--ink); border-bottom: 1px solid var(--ink-3); position: sticky; top: 0; z-index: 100; }
-        .navbar-brand { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
-        .version-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: var(--accent); color: #fff; padding: 2px 7px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
-
-        /* SEARCH */
-        .search-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 28px 32px; box-shadow: 0 2px 16px rgba(15,15,26,.06); }
-        .search-input { width: 100%; padding: 12px 18px; border: 1.5px solid var(--border); border-radius: 12px; font-family: 'Sora', sans-serif; font-size: 0.95rem; color: var(--ink); outline: none; transition: border-color .2s, box-shadow .2s; background: var(--surface); }
-        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--glow); background: #fff; }
-
-        .btn-search { background: var(--accent); color: #fff; border: none; padding: 12px 28px; border-radius: 12px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background .15s, transform .1s, box-shadow .15s; box-shadow: 0 4px 14px rgba(91,76,245,.3); white-space: nowrap; }
-        .btn-search:hover { background: #4338e0; box-shadow: 0 6px 20px rgba(91,76,245,.4); transform: translateY(-1px); }
-        .btn-search:active { transform: translateY(0); }
-        .btn-search:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-
-        /* AI SUMMARY BUTTON */
-        .btn-ai { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; border: none; padding: 11px 24px; border-radius: 12px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all .15s; box-shadow: 0 4px 14px rgba(124,58,237,.35); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
-        .btn-ai:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,.45); }
-        .btn-ai:disabled { opacity: .55; cursor: not-allowed; transform: none; }
-
-        /* LOGIN */
-        .btn-login { background: transparent; border: 1.5px solid rgba(255,255,255,.35); color: #fff; padding: 8px 20px; border-radius: 10px; font-family: 'Sora', sans-serif; font-weight: 500; font-size: 0.85rem; cursor: pointer; transition: background .15s, border-color .15s; }
-        .btn-login:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.6); }
-        .btn-logout { background: var(--rose); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-family: 'Sora', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: background .15s; }
-        .btn-logout:hover { background: #e11d48; }
-
-        /* SOURCE CHIPS */
-        .source-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
-        .source-chip { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--surface); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all .15s; user-select: none; color: #666; }
-        .source-chip.active { border-color: var(--accent); background: #ede9ff; color: var(--accent); }
-        .source-chip input { display: none; }
-
-        /* STATUS */
-        .status-bar { display: flex; align-items: center; gap: 12px; background: #ede9ff; border: 1px solid #c4b5fd; border-radius: 14px; padding: 14px 20px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner { width: 18px; height: 18px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
-
-        /* RESULTS GRID */
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-
-        /* RESULT CARD */
-        .result-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
-        .result-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
-        .result-card.type-onenote::before { background: var(--accent); }
-        .result-card.type-word::before    { background: var(--sky); }
-        .result-card.type-excel::before   { background: var(--emerald); }
-        .result-card.type-ppt::before     { background: var(--amber); }
-        .result-card.type-pdf::before     { background: var(--rose); }
-        .result-card.type-other::before   { background: #94a3b8; }
-        .result-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px -8px rgba(15,15,26,.12); border-color: #c4b5fd; }
-
-        .card-type-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: .02em; }
-        .badge-onenote { background: #ede9ff; color: var(--accent); }
-        .badge-word    { background: #e0f2fe; color: #0369a1; }
-        .badge-excel   { background: #d1fae5; color: #065f46; }
-        .badge-ppt     { background: #fef3c7; color: #92400e; }
-        .badge-pdf     { background: #ffe4e6; color: #9f1239; }
-        .badge-other   { background: #f1f5f9; color: #475569; }
-
-        .card-title { font-weight: 600; font-size: 0.95rem; color: var(--ink); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .card-meta { font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 10px; }
-        .card-open { font-size: 0.78rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
-
-        /* AI SUMMARY IN CARD */
-        .card-summary-area { margin-top: 2px; }
-        .summary-box { background: linear-gradient(135deg, #faf5ff, #f0f9ff); border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px 14px; font-size: 0.8rem; color: #374151; line-height: 1.65; position: relative; }
-        .summary-box .summary-label { font-size: 0.68rem; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
-        .summary-loading { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 0.8rem; color: #7c3aed; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 10px; }
-        .summary-spinner { width: 14px; height: 14px; border: 2px solid #7c3aed; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
-        .summary-err { font-size: 0.75rem; color: #dc2626; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 8px 12px; }
-
-        /* DEBUG */
-        #debug-log { font-family: 'JetBrains Mono', monospace; font-size: 11px; max-height: 200px; overflow-y: auto; line-height: 1.6; }
-        .log-ok   { color: #34d399; }
-        .log-warn { color: #fbbf24; }
-        .log-err  { color: #f87171; }
-        .log-info { color: #94a3b8; }
-
-        /* STATS */
-        .stats-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-        .stat-chip { display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 99px; font-size: 0.78rem; font-weight: 500; background: var(--card); border: 1px solid var(--border); }
-
-        /* EMPTY */
-        .empty-state { grid-column: 1/-1; text-align: center; padding: 80px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; }
-
-        /* SORT */
-        .sort-select { padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Sora', sans-serif; font-size: 0.8rem; background: var(--card); color: var(--ink); outline: none; cursor: pointer; }
-
-        /* USER */
-        .user-chip { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 5px 14px; border-radius: 99px; font-size: 0.8rem; font-weight: 500; }
-
-        /* SETTINGS MODAL */
-        .settings-overlay { position: fixed; inset: 0; background: rgba(15,15,26,.6); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .settings-panel { background: #fff; border-radius: 20px; padding: 28px; max-width: 500px; width: 100%; box-shadow: 0 24px 64px rgba(15,15,26,.25); max-height: 90vh; overflow-y: auto; }
-
-        /* SUMMARY PROGRESS BAR */
-        #summary-progress-wrap { background: #f3e8ff; border: 1px solid #d8b4fe; border-radius: 14px; padding: 16px 20px; }
-        .progress-bar-track { background: #e9d5ff; border-radius: 99px; height: 6px; overflow: hidden; margin-top: 10px; }
-        .progress-bar-fill { background: linear-gradient(90deg, #7c3aed, #a855f7); height: 100%; border-radius: 99px; transition: width .3s ease; }
+        :root{--ink:#0f0f1a;--ink-2:#1e1e35;--ink-3:#2d2d4e;--surface:#f5f5f8;--card:#ffffff;--accent:#5b4cf5;--glow:rgba(91,76,245,0.18);--rose:#f43f5e;--sky:#0ea5e9;--emerald:#10b981;--amber:#f59e0b;--border:#e4e4ef;}
+        *{box-sizing:border-box;}
+        body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;}
+        .navbar{background:var(--ink);border-bottom:1px solid var(--ink-3);position:sticky;top:0;z-index:100;}
+        .navbar-brand{font-size:1.1rem;font-weight:700;color:#fff;}
+        .version-badge{font-family:'JetBrains Mono',monospace;font-size:.65rem;background:var(--accent);color:#fff;padding:2px 7px;border-radius:99px;margin-left:8px;vertical-align:middle;}
+        .btn-nav{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff;padding:7px 16px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:500;font-size:.82rem;cursor:pointer;transition:.15s;}
+        .btn-nav:hover{background:rgba(255,255,255,.1);}
+        .btn-logout{background:var(--rose);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;}
+        .user-chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:99px;font-size:.8rem;}
+        .search-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;box-shadow:0 2px 16px rgba(15,15,26,.06);}
+        .search-input{width:100%;padding:12px 18px;border:1.5px solid var(--border);border-radius:12px;font-family:'Sora',sans-serif;font-size:.95rem;color:var(--ink);outline:none;transition:.2s;background:var(--surface);}
+        .search-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--glow);background:#fff;}
+        .btn-search{background:var(--accent);color:#fff;border:none;padding:12px 28px;border-radius:12px;font-family:'Sora',sans-serif;font-weight:600;font-size:.95rem;cursor:pointer;box-shadow:0 4px 14px rgba(91,76,245,.3);white-space:nowrap;transition:.15s;}
+        .btn-search:hover{background:#4338e0;}
+        .btn-search:disabled{opacity:.55;cursor:not-allowed;}
+        .btn-ai{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;border:none;padding:10px 22px;border-radius:12px;font-family:'Sora',sans-serif;font-weight:600;font-size:.88rem;cursor:pointer;box-shadow:0 4px 14px rgba(124,58,237,.35);display:flex;align-items:center;gap:7px;transition:.15s;}
+        .btn-ai:hover{transform:translateY(-1px);}
+        .btn-ai:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+        .source-chip{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:99px;border:1.5px solid var(--border);background:var(--surface);font-size:.8rem;font-weight:500;cursor:pointer;user-select:none;color:#666;transition:.15s;}
+        .source-chip.active{border-color:var(--accent);background:#ede9ff;color:var(--accent);}
+        .source-chip input{display:none;}
+        .status-bar{display:flex;align-items:center;gap:12px;background:#ede9ff;border:1px solid #c4b5fd;border-radius:14px;padding:14px 20px;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .spinner{width:18px;height:18px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+        .results-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
+        .result-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;cursor:pointer;transition:.18s;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;}
+        .result-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;}
+        .result-card.type-onenote::before{background:var(--accent);}
+        .result-card.type-word::before{background:var(--sky);}
+        .result-card.type-excel::before{background:var(--emerald);}
+        .result-card.type-ppt::before{background:var(--amber);}
+        .result-card.type-pdf::before{background:var(--rose);}
+        .result-card.type-other::before{background:#94a3b8;}
+        .result-card:hover{transform:translateY(-3px);box-shadow:0 12px 32px -8px rgba(15,15,26,.12);border-color:#c4b5fd;}
+        .card-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:99px;font-size:.72rem;font-weight:600;}
+        .badge-onenote{background:#ede9ff;color:var(--accent);}
+        .badge-word{background:#e0f2fe;color:#0369a1;}
+        .badge-excel{background:#d1fae5;color:#065f46;}
+        .badge-ppt{background:#fef3c7;color:#92400e;}
+        .badge-pdf{background:#ffe4e6;color:#9f1239;}
+        .badge-other{background:#f1f5f9;color:#475569;}
+        .card-title{font-weight:600;font-size:.95rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .card-meta{font-size:.75rem;color:#94a3b8;display:flex;align-items:center;gap:10px;}
+        .card-open{font-size:.78rem;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:4px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border);}
+        .summary-box{background:linear-gradient(135deg,#faf5ff,#f0f9ff);border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;font-size:.8rem;color:#374151;line-height:1.65;}
+        .summary-label{font-size:.68rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+        .summary-loading{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:.8rem;color:#7c3aed;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;}
+        .summary-err{font-size:.75rem;color:#dc2626;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;}
+        .mini-spinner{width:14px;height:14px;border:2px solid #7c3aed;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+        .stat-chip{display:flex;align-items:center;gap:5px;padding:4px 12px;border-radius:99px;font-size:.78rem;font-weight:500;background:var(--card);border:1px solid var(--border);}
+        .sort-select{padding:6px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Sora',sans-serif;font-size:.8rem;background:var(--card);color:var(--ink);outline:none;cursor:pointer;}
+        .empty-state{grid-column:1/-1;text-align:center;padding:80px 20px;background:var(--card);border:1px solid var(--border);border-radius:20px;}
+        .load-more-wrap{grid-column:1/-1;text-align:center;padding:16px 0;}
+        .btn-load{background:var(--ink);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:.85rem;cursor:pointer;transition:.15s;margin:4px;}
+        .btn-load:hover{background:var(--ink-2);}
+        .btn-load.primary{background:var(--accent);}
+        .btn-load.primary:hover{background:#4338e0;}
+        .progress-track{background:#e9d5ff;border-radius:99px;height:6px;overflow:hidden;margin-top:10px;}
+        .progress-fill{background:linear-gradient(90deg,#7c3aed,#a855f7);height:100%;border-radius:99px;transition:width .3s;}
+        #debug-log{font-family:'JetBrains Mono',monospace;font-size:11px;max-height:200px;overflow-y:auto;line-height:1.6;}
+        .log-ok{color:#34d399;}.log-warn{color:#fbbf24;}.log-err{color:#f87171;}.log-info{color:#94a3b8;}
+        .settings-overlay{position:fixed;inset:0;background:rgba(15,15,26,.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px;}
+        .settings-panel{background:#fff;border-radius:20px;padding:28px;max-width:500px;width:100%;box-shadow:0 24px 64px rgba(15,15,26,.25);max-height:90vh;overflow-y:auto;}
+        .settings-label{display:block;font-size:.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;}
+        .settings-input{width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:.82rem;outline:none;margin-bottom:16px;}
     </style>
 </head>
 <body>
 
 <!-- NAVBAR -->
 <nav class="navbar px-5 py-3">
-    <div class="max-w-6xl mx-auto flex justify-between items-center gap-4">
+    <div class="max-w-6xl mx-auto flex justify-between items-center gap-3 flex-wrap">
         <div class="flex items-center gap-2">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect width="28" height="28" rx="8" fill="#5b4cf5"/>
-                <path d="M7 8h14M7 14h10M7 20h7" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
-                <circle cx="21" cy="20" r="4" fill="#f59e0b"/>
-                <path d="M19.5 20h3M21 18.5v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <span class="navbar-brand">Explorer<span class="version-badge">v5.1</span></span>
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect width="28" height="28" rx="8" fill="#5b4cf5"/><path d="M7 8h14M7 14h10M7 20h7" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="21" cy="20" r="4" fill="#f59e0b"/><path d="M19.5 20h3M21 18.5v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="navbar-brand">Explorer<span class="version-badge">v5.2</span></span>
         </div>
-        <div class="flex items-center gap-3">
-            <button id="debug-toggle" class="btn-login" style="padding:6px 12px;font-size:0.75rem;">📋 日誌</button>
-            <button id="settings-open" class="btn-login" style="padding:6px 12px;font-size:0.75rem;">⚙️ 設定</button>
-            <button id="login-btn" class="btn-login">🔐 登入 Microsoft</button>
+        <div class="flex items-center gap-2 flex-wrap">
+            <button id="debug-toggle" class="btn-nav">📋 日誌</button>
+            <button id="settings-open" class="btn-nav">⚙️ 設定</button>
+            <button id="login-btn" class="btn-nav">🔐 登入 Microsoft</button>
             <div id="user-info" class="hidden items-center gap-2">
                 <span id="username" class="user-chip"></span>
                 <button id="logout-btn" class="btn-logout">登出</button>
@@ -158,8 +101,8 @@
 <div id="debug-panel" class="hidden" style="background:#0f0f1a;border-bottom:1px solid #1e1e35;">
     <div class="max-w-6xl mx-auto px-5 py-3">
         <div class="flex justify-between items-center mb-2">
-            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6b7280;letter-spacing:.08em;">CONSOLE OUTPUT</span>
-            <button id="clear-log" style="font-size:11px;color:#4b5563;cursor:pointer;">清除</button>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6b7280;letter-spacing:.08em;">CONSOLE</span>
+            <button id="clear-log" style="font-size:11px;color:#6b7280;cursor:pointer;background:none;border:none;">清除</button>
         </div>
         <div id="debug-log"></div>
     </div>
@@ -170,33 +113,25 @@
     <div class="settings-panel">
         <div class="flex justify-between items-center mb-5">
             <h2 style="font-weight:700;font-size:1.1rem;">⚙️ 設定</h2>
-            <button id="settings-close" style="color:#94a3b8;font-size:1.2rem;cursor:pointer;background:none;border:none;">✕</button>
+            <button id="settings-close" style="color:#94a3b8;font-size:1.3rem;cursor:pointer;background:none;border:none;">✕</button>
         </div>
-
-        <!-- Azure -->
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:16px;font-size:0.8rem;color:#1e40af;">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:16px;font-size:.8rem;color:#1e40af;">
             <p style="font-weight:700;margin-bottom:6px;">📌 Azure Portal 必要設定</p>
             <ol style="list-style:decimal;padding-left:18px;line-height:2;">
-                <li>應用程式註冊 → <strong>驗證</strong> → 重新導向 URI：<br>
-                    <code id="show-redirect-uri" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.75rem;word-break:break-all;"></code></li>
+                <li>驗證 → 重新導向 URI：<code id="show-redirect-uri" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.75rem;word-break:break-all;"></code></li>
                 <li>API 權限：<code>User.Read</code>、<code>Notes.Read</code>、<code>Files.Read</code></li>
-                <li>學校/公司帳號需「授與管理員同意」</li>
             </ol>
         </div>
-        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Azure Application (Client) ID</label>
-        <input type="text" id="config-client-id" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:18px;" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-
-        <!-- AI Key -->
-        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:14px;font-size:0.8rem;color:#166534;">
-            <p style="font-weight:700;margin-bottom:4px;">✨ AI 摘要（選填）</p>
-            <p>填入 Anthropic API Key 啟用批次 AI 摘要。Key 僅存在本機瀏覽器，不會傳送至任何第三方伺服器。</p>
+        <label class="settings-label">Azure Application (Client) ID</label>
+        <input type="text" id="config-client-id" class="settings-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;margin-bottom:12px;font-size:.8rem;color:#166534;">
+            <p style="font-weight:700;margin-bottom:3px;">✨ AI 摘要（選填）</p>
+            <p>填入 Anthropic API Key 啟用批次 AI 摘要與 PDF 視覺分析。僅存於本機 localStorage。</p>
         </div>
-        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Anthropic API Key</label>
-        <input type="password" id="config-anthropic-key" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;" placeholder="sk-ant-api03-...">
-
-        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;margin-top:14px;">📄 PDF AI 分析最大頁數（每頁費用約 $0.003）</label>
-        <input type="number" id="config-pdf-max-pages" min="1" max="100" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;" placeholder="預設 10 頁">
-
+        <label class="settings-label">Anthropic API Key</label>
+        <input type="password" id="config-anthropic-key" class="settings-input" placeholder="sk-ant-api03-...">
+        <label class="settings-label">PDF AI 分析最大頁數（每頁 ~$0.003）</label>
+        <input type="number" id="config-pdf-max-pages" class="settings-input" min="1" max="100" placeholder="預設 10 頁">
         <button id="save-config" class="btn-search" style="width:100%;">💾 儲存並重新載入</button>
     </div>
 </div>
@@ -207,72 +142,61 @@
     <!-- SEARCH CARD -->
     <div class="search-card">
         <div style="margin-bottom:16px;">
-            <p style="font-size:0.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">搜尋來源</p>
-            <div class="source-toggle">
-                <label class="source-chip active" id="chip-onenote">
-                    <input type="checkbox" id="src-onenote" checked><span>📓</span> OneNote 筆記
-                </label>
-                <label class="source-chip active" id="chip-onedrive">
-                    <input type="checkbox" id="src-onedrive" checked><span>☁️</span> OneDrive 檔案
-                </label>
+            <p style="font-size:.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">搜尋來源</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <label class="source-chip active" id="chip-onenote"><input type="checkbox" id="src-onenote" checked><span>📓</span> OneNote 筆記</label>
+                <label class="source-chip active" id="chip-onedrive"><input type="checkbox" id="src-onedrive" checked><span>☁️</span> OneDrive 檔案</label>
             </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;">
             <div>
-                <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">🔍 關鍵字</label>
+                <label style="display:block;font-size:.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">🔍 關鍵字</label>
                 <input type="text" id="keyword" class="search-input" placeholder="輸入檔案名稱或關鍵字...">
             </div>
             <div>
-                <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">📅 起始日期（選填）</label>
+                <label style="display:block;font-size:.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">📅 起始日期（選填）</label>
                 <input type="date" id="start-date" class="search-input" style="width:auto;">
             </div>
             <button type="button" id="search-btn" class="btn-search">🔎 搜尋</button>
         </div>
-        <p style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">
-            💡 同時搜尋 OneNote 筆記 + OneDrive 所有檔案（Word、PDF、Excel、PowerPoint 等），結果依修改時間排序。
-        </p>
+        <p style="font-size:.75rem;color:#94a3b8;margin-top:12px;">💡 同時搜尋 OneNote + OneDrive 所有檔案，分頁載入，每次顯示 100 筆。</p>
     </div>
 
     <!-- STATUS -->
     <div id="status-bar" class="status-bar hidden">
         <div class="spinner"></div>
-        <span id="status-text" style="font-size:0.88rem;color:#5b4cf5;font-weight:500;">載入中...</span>
+        <span id="status-text" style="font-size:.88rem;color:var(--accent);font-weight:500;">載入中...</span>
     </div>
 
-    <!-- ERROR -->
-    <div id="error-bar" class="hidden" style="background:#fff1f2;border:1px solid #fecdd3;border-radius:14px;padding:16px 20px;">
-        <p style="font-weight:700;color:#be123c;margin-bottom:4px;">❌ 發生錯誤</p>
-        <p id="error-text" style="font-size:0.85rem;color:#e11d48;"></p>
-        <p id="error-hint" style="font-size:0.78rem;color:#fb7185;margin-top:6px;"></p>
+    <!-- ERROR / WARNING -->
+    <div id="error-bar" class="hidden" style="border-radius:14px;padding:16px 20px;">
+        <p id="error-title" style="font-weight:700;margin-bottom:4px;">❌ 發生錯誤</p>
+        <p id="error-text" style="font-size:.85rem;"></p>
+        <p id="error-hint" style="font-size:.78rem;margin-top:6px;"></p>
     </div>
 
-    <!-- STATS + AI BTN + SORT -->
+    <!-- STATS ROW -->
     <div id="stats-row" class="hidden" style="display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <div class="stats-bar" id="stats-chips"></div>
+        <div id="stats-chips" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"></div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <button id="ai-summarize-btn" class="btn-ai hidden">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                ✨ AI 摘要全部
-            </button>
+            <button id="ai-summarize-btn" class="btn-ai hidden">✨ AI 摘要全部</button>
             <select id="sort-select" class="sort-select">
                 <option value="date-desc">最新修改優先</option>
                 <option value="date-asc">最舊修改優先</option>
-                <option value="name-asc">名稱 A → Z</option>
-                <option value="name-desc">名稱 Z → A</option>
+                <option value="name-asc">名稱 A→Z</option>
+                <option value="name-desc">名稱 Z→A</option>
             </select>
         </div>
     </div>
 
     <!-- AI PROGRESS -->
-    <div id="summary-progress-wrap" class="hidden">
+    <div id="summary-progress-wrap" class="hidden" style="background:#f3e8ff;border:1px solid #d8b4fe;border-radius:14px;padding:16px 20px;">
         <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:0.85rem;font-weight:600;color:#7c3aed;">✨ AI 摘要進度</span>
-            <span id="summary-progress-text" style="font-size:0.8rem;color:#7c3aed;font-family:'JetBrains Mono',monospace;"></span>
+            <span style="font-size:.85rem;font-weight:600;color:#7c3aed;">✨ AI 摘要進度</span>
+            <span id="summary-progress-text" style="font-size:.8rem;color:#7c3aed;font-family:'JetBrains Mono',monospace;"></span>
         </div>
-        <div class="progress-bar-track">
-            <div class="progress-bar-fill" id="summary-progress-bar" style="width:0%"></div>
-        </div>
-        <p id="summary-progress-item" style="font-size:0.75rem;color:#9061f9;margin-top:8px;"></p>
+        <div class="progress-track"><div class="progress-fill" id="summary-progress-bar" style="width:0%"></div></div>
+        <p id="summary-progress-item" style="font-size:.75rem;color:#9061f9;margin-top:8px;"></p>
     </div>
 
     <!-- RESULTS -->
@@ -280,297 +204,354 @@
         <div class="empty-state">
             <div style="font-size:3rem;margin-bottom:12px;">🔭</div>
             <h3 style="font-weight:700;font-size:1.05rem;color:#334155;">準備好了！</h3>
-            <p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">登入後輸入關鍵字，即可同時搜尋 OneNote 和 OneDrive</p>
+            <p style="color:#94a3b8;font-size:.85rem;margin-top:6px;">登入後輸入關鍵字，即可同時搜尋 OneNote 和 OneDrive</p>
         </div>
     </div>
 </main>
 
 <script>
-// ── DEBUG
+// ════ DEBUG ════
 const debugLog = document.getElementById('debug-log');
-function log(msg, type = 'info') {
+function log(msg, type='info') {
     const el = document.createElement('div');
-    el.className = `log-${type}`;
-    el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    el.className = 'log-' + type;
+    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
     debugLog.appendChild(el);
     debugLog.scrollTop = debugLog.scrollHeight;
 }
 document.getElementById('debug-toggle').onclick = () => document.getElementById('debug-panel').classList.toggle('hidden');
 document.getElementById('clear-log').onclick = () => debugLog.innerHTML = '';
 
-// ── SETTINGS
+// ════ SETTINGS ════
 const DEFAULT_CLIENT_ID = 'adb3f3d3-a15a-43a5-9077-b95c30f654ff';
 let activeClientId = localStorage.getItem('onenote_client_id') || DEFAULT_CLIENT_ID;
 let anthropicKey   = localStorage.getItem('anthropic_api_key') || '';
+let pdfMaxPages    = parseInt(localStorage.getItem('pdf_max_pages') || '10');
 
-document.getElementById('config-client-id').value = activeClientId;
+document.getElementById('config-client-id').value    = activeClientId;
 document.getElementById('config-anthropic-key').value = anthropicKey;
-let pdfMaxPages = parseInt(localStorage.getItem('pdf_max_pages') || '10');
 document.getElementById('config-pdf-max-pages').value = pdfMaxPages;
 document.getElementById('show-redirect-uri').textContent = window.location.origin + window.location.pathname;
 
-document.getElementById('settings-open').onclick = () => document.getElementById('settings-overlay').classList.remove('hidden');
+document.getElementById('settings-open').onclick  = () => document.getElementById('settings-overlay').classList.remove('hidden');
 document.getElementById('settings-close').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
+document.getElementById('settings-overlay').onclick = (e) => { if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden'); };
 document.getElementById('save-config').onclick = () => {
-    const clientId = document.getElementById('config-client-id').value.trim() || DEFAULT_CLIENT_ID;
-    const apiKey   = document.getElementById('config-anthropic-key').value.trim();
-    localStorage.setItem('onenote_client_id', clientId);
-    if (apiKey) localStorage.setItem('anthropic_api_key', apiKey);
-    else localStorage.removeItem('anthropic_api_key');
-    const maxPages = parseInt(document.getElementById('config-pdf-max-pages').value) || 10;
-    localStorage.setItem('pdf_max_pages', maxPages);
+    const cid = document.getElementById('config-client-id').value.trim() || DEFAULT_CLIENT_ID;
+    const ak  = document.getElementById('config-anthropic-key').value.trim();
+    const mp  = parseInt(document.getElementById('config-pdf-max-pages').value) || 10;
+    localStorage.setItem('onenote_client_id', cid);
+    if (ak) localStorage.setItem('anthropic_api_key', ak); else localStorage.removeItem('anthropic_api_key');
+    localStorage.setItem('pdf_max_pages', mp);
     window.location.reload();
 };
 
-// ── SOURCE CHIPS
+// ════ SOURCE CHIPS ════
 ['onenote','onedrive'].forEach(id => {
-    const chip = document.getElementById(`chip-${id}`);
-    const cb   = document.getElementById(`src-${id}`);
+    const chip = document.getElementById('chip-' + id);
+    const cb   = document.getElementById('src-' + id);
     chip.addEventListener('click', () => { cb.checked = !cb.checked; chip.classList.toggle('active', cb.checked); });
 });
 
-// ── MSAL
+// ════ MSAL ════
 let msalInstance = null;
-const loginRequest = { scopes: ['User.Read', 'Notes.Read', 'Files.Read'] };
+const LOGIN_REQUEST = { scopes: ['User.Read', 'Notes.Read', 'Files.Read'] };
 
-function initMsal(clientId) {
-    if (!clientId) return;
+(function initMsal() {
     try {
         msalInstance = new msal.PublicClientApplication({
-            auth: { clientId, authority: 'https://login.microsoftonline.com/common', redirectUri: window.location.origin + window.location.pathname },
+            auth: { clientId: activeClientId, authority: 'https://login.microsoftonline.com/common', redirectUri: window.location.origin + window.location.pathname },
             cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
         });
         log('MSAL 初始化成功', 'ok');
         checkUser();
-    } catch(e) { log('MSAL 失敗: ' + e.message, 'err'); }
-}
-initMsal(activeClientId);
+    } catch(e) { log('MSAL 初始化失敗: ' + e.message, 'err'); }
+})();
 
 function checkUser() {
-    const accounts = msalInstance?.getAllAccounts() || [];
+    const accounts = msalInstance ? msalInstance.getAllAccounts() : [];
     if (accounts.length > 0) {
         document.getElementById('login-btn').classList.add('hidden');
         document.getElementById('user-info').style.display = 'flex';
-        document.getElementById('username').textContent = `👤 ${accounts[0].name || accounts[0].username}`;
-        log(`已登入：${accounts[0].username}`, 'ok');
+        document.getElementById('username').textContent = '👤 ' + (accounts[0].name || accounts[0].username);
+        log('已登入：' + accounts[0].username, 'ok');
     } else {
         document.getElementById('login-btn').classList.remove('hidden');
         document.getElementById('user-info').style.display = 'none';
     }
 }
 
-document.getElementById('login-btn').addEventListener('click', async () => {
+document.getElementById('login-btn').onclick = async () => {
     if (!msalInstance) return alert('請先在設定中填入 Client ID！');
-    try { await msalInstance.loginPopup(loginRequest); checkUser(); }
+    try { await msalInstance.loginPopup(LOGIN_REQUEST); checkUser(); }
     catch(e) { log('登入失敗: ' + e.message, 'err'); alert('登入失敗：' + e.message); }
-});
-
-document.getElementById('logout-btn').addEventListener('click', async () => {
+};
+document.getElementById('logout-btn').onclick = async () => {
     localStorage.clear(); sessionStorage.clear();
     if (msalInstance) {
         const acc = msalInstance.getAllAccounts();
-        if (acc.length > 0) { try { await msalInstance.logoutPopup({ account: acc[0] }); return; } catch{} }
+        if (acc.length) { try { await msalInstance.logoutPopup({ account: acc[0] }); return; } catch {} }
     }
     window.location.reload();
-});
+};
 
-// ── TOKEN
 async function getToken() {
     const accounts = msalInstance.getAllAccounts();
     try {
-        const r = await msalInstance.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
-        log('Token 靜默取得', 'ok'); return r.accessToken;
+        const r = await msalInstance.acquireTokenSilent({ ...LOGIN_REQUEST, account: accounts[0] });
+        return r.accessToken;
     } catch {
-        const r = await msalInstance.acquireTokenPopup(loginRequest);
-        log('Token 彈出取得', 'ok'); return r.accessToken;
+        const r = await msalInstance.acquireTokenPopup(LOGIN_REQUEST);
+        return r.accessToken;
     }
 }
 
-// ── FILE TYPE
+// ════ FILE TYPE ════
 function getFileType(item) {
     if (item._source === 'onenote') return 'onenote';
-    const name = (item.name || '').toLowerCase();
-    if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
-    if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) return 'excel';
-    if (name.endsWith('.pptx') || name.endsWith('.ppt')) return 'ppt';
-    if (name.endsWith('.pdf')) return 'pdf';
-    if (name.endsWith('.one')) return 'onenote';
+    const n = (item.name || '').toLowerCase();
+    if (n.endsWith('.docx') || n.endsWith('.doc')) return 'word';
+    if (n.endsWith('.xlsx') || n.endsWith('.xls') || n.endsWith('.csv')) return 'excel';
+    if (n.endsWith('.pptx') || n.endsWith('.ppt')) return 'ppt';
+    if (n.endsWith('.pdf')) return 'pdf';
+    if (n.endsWith('.one')) return 'onenote';
     return 'other';
 }
 const TYPE_META = {
-    onenote: { label: '📓 OneNote', badgeClass: 'badge-onenote', icon: '📓' },
-    word:    { label: '📝 Word',    badgeClass: 'badge-word',    icon: '📝' },
-    excel:   { label: '📊 Excel',   badgeClass: 'badge-excel',   icon: '📊' },
-    ppt:     { label: '📽 PPT',     badgeClass: 'badge-ppt',     icon: '📽' },
-    pdf:     { label: '📄 PDF',     badgeClass: 'badge-pdf',     icon: '📄' },
-    other:   { label: '📁 檔案',    badgeClass: 'badge-other',   icon: '📁' },
+    onenote:{ label:'📓 OneNote', badgeClass:'badge-onenote', icon:'📓' },
+    word:   { label:'📝 Word',    badgeClass:'badge-word',    icon:'📝' },
+    excel:  { label:'📊 Excel',   badgeClass:'badge-excel',   icon:'📊' },
+    ppt:    { label:'📽 PPT',     badgeClass:'badge-ppt',     icon:'📽' },
+    pdf:    { label:'📄 PDF',     badgeClass:'badge-pdf',     icon:'📄' },
+    other:  { label:'📁 檔案',    badgeClass:'badge-other',   icon:'📁' },
 };
 
-// ── SEARCH: OneNote
-async function searchOneNote(token, keyword) {
-    log('搜尋 OneNote（標題篩選模式）...', 'info');
-    const kw = keyword.toLowerCase();
-    let all = [], nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100&$orderby=lastModifiedDateTime desc`;
-    let pageCount = 0;
-    const MAX_PAGES = 5; // 最多抓 500 筆，避免 504 timeout
-
-    while (nextLink && pageCount < MAX_PAGES) {
-        try {
-            const controller = new AbortController();
-            const tid = setTimeout(() => controller.abort(), 12000); // 12 秒 timeout
-            const r = await fetch(nextLink, {
-                headers: { Authorization: `Bearer ${token}` },
-                signal: controller.signal
-            });
-            clearTimeout(tid);
-
-            if (!r.ok) {
-                const status = r.status;
-                if (status === 504 || status === 503) {
-                    log(`OneNote 第 ${pageCount+1} 頁 timeout (${status})，已取得 ${all.length} 筆停止`, 'warn');
-                    break; // 不拋錯，用已取得的資料
-                }
-                if (status === 400) {
-                    log(`OneNote API 400 錯誤，可能帳號不支援此查詢，已取得 ${all.length} 筆`, 'warn');
-                    break;
-                }
-                throw new Error(`OneNote API 錯誤 (${status})`);
-            }
-            const d = await r.json();
-            all = all.concat(d.value || []);
-            nextLink = d['@odata.nextLink'] || null;
-            pageCount++;
-            log(`OneNote 第 ${pageCount} 頁：累計 ${all.length} 筆`, 'info');
-        } catch(e) {
-            if (e.name === 'AbortError') {
-                log(`OneNote 第 ${pageCount+1} 頁請求逾時，已取得 ${all.length} 筆停止`, 'warn');
-                break;
-            }
-            throw e;
+// ════ SEARCH: OneNote ════
+async function searchOneNote(token, keyword, nextLinkOverride) {
+    const kw  = keyword.toLowerCase();
+    const url = nextLinkOverride ||
+        'https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100&$orderby=lastModifiedDateTime desc';
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 14000);
+    try {
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token }, signal: controller.signal });
+        clearTimeout(tid);
+        if (!r.ok) {
+            log('OneNote 錯誤 (' + r.status + ')', 'warn');
+            return { items: [], nextLink: null, error: 'OneNote API 錯誤 (' + r.status + ')' };
         }
+        const d = await r.json();
+        const matched = (d.value || []).filter(p => p.title && p.title.toLowerCase().includes(kw)).map(p => ({ ...p, _source: 'onenote' }));
+        log('OneNote: ' + matched.length + ' 筆符合 / ' + (d.value||[]).length + ' 筆', 'ok');
+        return { items: matched, nextLink: d['@odata.nextLink'] || null };
+    } catch(e) {
+        clearTimeout(tid);
+        const msg = e.name === 'AbortError' ? 'OneNote 請求逾時' : e.message;
+        log(msg, 'warn');
+        return { items: [], nextLink: null, error: msg };
     }
-
-    const filtered = all.filter(p => p.title?.toLowerCase().includes(kw)).map(p => ({ ...p, _source: 'onenote' }));
-    log(`OneNote 篩選完成：${filtered.length}／${all.length} 筆符合「${keyword}」`, 'ok');
-    return filtered;
 }
 
-// ── SEARCH: OneDrive
-async function searchOneDrive(token, keyword) {
-    log('搜尋 OneDrive（search API）...', 'info');
-    const searchUrl = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=100`;
-    const res = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) {
-        const data = await res.json();
-        const files = (data.value || []).filter(i => i.file).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-        log(`OneDrive search API：${files.length} 個檔案`, 'ok');
-        if (files.length > 0) return files;
-        log('search API 回傳 0，改 fallback', 'warn');
-    } else {
-        const errText = await res.text();
-        log(`OneDrive search 失敗 (${res.status})，改 fallback。${errText.substring(0,80)}`, 'warn');
-    }
+// ════ SEARCH: OneDrive ════
+async function searchOneDriveFirst(token, keyword) {
+    const url = "https://graph.microsoft.com/v1.0/me/drive/root/search(q='" + encodeURIComponent(keyword) + "')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=100";
+    try {
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+        if (r.ok) {
+            const d = await r.json();
+            const files = (d.value || []).filter(i => i.file).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+            log('OneDrive search: ' + files.length + ' 筆', 'ok');
+            if (files.length > 0) return { items: files, nextLink: d['@odata.nextLink'] || null, mode: 'search' };
+            log('OneDrive search 0 筆，改 fallback', 'warn');
+        } else {
+            log('OneDrive search 失敗 (' + r.status + ')，改 fallback', 'warn');
+        }
+    } catch(e) { log('OneDrive search 錯誤：' + e.message, 'warn'); }
+
+    // Fallback: list root + one level
     return await searchOneDriveFallback(token, keyword);
 }
 
 async function searchOneDriveFallback(token, keyword) {
-    log('OneDrive fallback：列舉檔案...', 'info');
     const kw = keyword.toLowerCase();
     let allFiles = [];
-    const listUrl = `https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,lastModifiedDateTime,webUrl,file,folder,size&$top=200`;
-    const res = await fetch(listUrl, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) { const t = await res.text(); throw new Error(`OneDrive 無法存取 (${res.status})。請確認 Files.Read 權限已授與。`); }
-    const data = await res.json();
-    const items = data.value || [];
-    log(`根目錄 ${items.length} 個項目`, 'info');
-    allFiles = items.filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-    const folders = items.filter(i => i.folder);
-    for (const folder of folders) {
-        try {
-            const fr = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=200`, { headers: { Authorization: `Bearer ${token}` } });
-            if (!fr.ok) continue;
-            const fd = await fr.json();
-            const matched = (fd.value || []).filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-            if (matched.length) log(`資料夾「${folder.name}」：${matched.length} 筆`, 'ok');
-            allFiles = allFiles.concat(matched);
-        } catch {}
-    }
-    log(`OneDrive fallback 共 ${allFiles.length} 筆`, 'ok');
-    return allFiles;
+    try {
+        const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,lastModifiedDateTime,webUrl,file,folder,size&$top=200', { headers: { Authorization: 'Bearer ' + token } });
+        if (!r.ok) throw new Error('OneDrive 無法存取 (' + r.status + ')，請確認 Files.Read 權限。');
+        const d = await r.json();
+        const items = d.value || [];
+        allFiles = items.filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+        const folders = items.filter(i => i.folder);
+        for (const folder of folders) {
+            try {
+                const fr = await fetch('https://graph.microsoft.com/v1.0/me/drive/items/' + folder.id + '/children?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=200', { headers: { Authorization: 'Bearer ' + token } });
+                if (!fr.ok) continue;
+                const fd = await fr.json();
+                const matched = (fd.value || []).filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+                allFiles = allFiles.concat(matched);
+            } catch {}
+        }
+        log('OneDrive fallback: ' + allFiles.length + ' 筆', 'ok');
+    } catch(e) { log('OneDrive fallback 失敗：' + e.message, 'err'); throw e; }
+    return { items: allFiles, nextLink: null, mode: 'fallback' };
 }
 
-// ── SORT
-let allResults = [];
+// ════ PAGINATION STATE ════
+const PAGE_SIZE = 100;
+let allResults   = [];
+let searchState  = { keyword:'', startDate:'', noteNextLink:null, driveNextLink:null, msToken:null, hasMore:false, displayedCount:0 };
+
+// ════ SORT ════
 function sortResults(items, mode) {
     const arr = [...items];
-    if (mode === 'date-desc') arr.sort((a,b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));
-    else if (mode === 'date-asc') arr.sort((a,b) => new Date(a.lastModifiedDateTime) - new Date(b.lastModifiedDateTime));
-    else if (mode === 'name-asc') arr.sort((a,b) => (a.title||'').localeCompare(b.title||''));
+    if      (mode === 'date-desc') arr.sort((a,b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));
+    else if (mode === 'date-asc')  arr.sort((a,b) => new Date(a.lastModifiedDateTime) - new Date(b.lastModifiedDateTime));
+    else if (mode === 'name-asc')  arr.sort((a,b) => (a.title||'').localeCompare(b.title||''));
     else if (mode === 'name-desc') arr.sort((a,b) => (b.title||'').localeCompare(a.title||''));
     return arr;
 }
-document.getElementById('sort-select').addEventListener('change', e => {
-    if (allResults.length) renderResults(sortResults(allResults, e.target.value));
+document.getElementById('sort-select').addEventListener('change', () => {
+    if (!allResults.length) return;
+    searchState.displayedCount = 0;
+    const sorted = sortResults(allResults, document.getElementById('sort-select').value);
+    renderPage(sorted, true);
+    renderLoadMore(sorted);
 });
 
-// ── RENDER
-function renderResults(items) {
+// ════ RENDER ════
+function renderPage(sorted, reset) {
     const grid = document.getElementById('results-grid');
-    grid.innerHTML = '';
-    if (items.length === 0) {
-        grid.innerHTML = `<div class="empty-state"><div style="font-size:3rem;margin-bottom:12px;">🔍</div><h3 style="font-weight:700;font-size:1.05rem;color:#334155;">找不到相關結果</h3><p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">請嘗試其他關鍵字</p></div>`;
+    if (reset) grid.innerHTML = '';
+    const old = document.getElementById('load-more-wrap');
+    if (old) old.remove();
+
+    if (reset && sorted.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div style="font-size:3rem;margin-bottom:12px;">🔍</div><h3 style="font-weight:700;font-size:1.05rem;color:#334155;">找不到相關結果</h3><p style="color:#94a3b8;font-size:.85rem;margin-top:6px;">請嘗試其他關鍵字</p></div>';
+        searchState.displayedCount = 0;
         return;
     }
-    items.forEach((item, idx) => {
+
+    const from = reset ? 0 : searchState.displayedCount;
+    const to   = Math.min(from + PAGE_SIZE, sorted.length);
+
+    for (let idx = from; idx < to; idx++) {
+        const item = sorted[idx];
         const type = getFileType(item);
         const meta = TYPE_META[type];
         const date = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
-        const url  = item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '#') : (item.webUrl || '#');
-        const size = item.size ? `${(item.size/1024).toFixed(0)} KB` : '';
+        const url  = item._source === 'onenote' ? (item.links && item.links.oneNoteWebUrl ? item.links.oneNoteWebUrl.href : '#') : (item.webUrl || '#');
+        const size = item.size ? Math.round(item.size/1024) + ' KB' : '';
         const card = document.createElement('div');
-        card.className = `result-card type-${type}`;
+        card.className = 'result-card type-' + type;
         card.dataset.idx = idx;
-        card.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span class="card-type-badge ${meta.badgeClass}">${meta.label}</span>
-                <span style="font-size:0.72rem;color:#94a3b8;">🗓 ${date}</span>
-            </div>
-            <p class="card-title">${escapeHtml(item.title || '無標題')}</p>
-            <div class="card-meta">
-                ${item._source === 'onedrive' ? '<span>☁️ OneDrive</span>' : '<span>📒 OneNote</span>'}
-                ${size ? `<span>·</span><span>${size}</span>` : ''}
-            </div>
-            <div class="card-summary-area" id="summary-${idx}"></div>
-            <div class="card-open" onclick="event.stopPropagation();window.open('${escapeHtml(url)}','_blank')">
-                <span>開啟${item._source === 'onenote' ? '筆記' : '檔案'}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            </div>`;
-        // card click = open
+        card.innerHTML =
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                '<span class="card-badge ' + meta.badgeClass + '">' + meta.label + '</span>' +
+                '<span style="font-size:.72rem;color:#94a3b8;">🗓 ' + date + '</span>' +
+            '</div>' +
+            '<p class="card-title">' + escHtml(item.title || '無標題') + '</p>' +
+            '<div class="card-meta">' +
+                (item._source === 'onedrive' ? '<span>☁️ OneDrive</span>' : '<span>📒 OneNote</span>') +
+                (size ? '<span>·</span><span>' + size + '</span>' : '') +
+            '</div>' +
+            '<div class="card-summary-area" id="summary-' + idx + '"></div>' +
+            '<div class="card-open" onclick="event.stopPropagation();window.open(\'' + escHtml(url) + '\',\'_blank\')">' +
+                '<span>開啟' + (item._source === 'onenote' ? '筆記' : '檔案') + '</span>' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>' +
+            '</div>';
         card.addEventListener('click', () => window.open(url, '_blank'));
         grid.appendChild(card);
-    });
+    }
+    searchState.displayedCount = to;
+}
+
+function renderLoadMore(sorted) {
+    const old = document.getElementById('load-more-wrap');
+    if (old) old.remove();
+    const remaining  = sorted.length - searchState.displayedCount;
+    const canFetch   = searchState.hasMore;
+    if (remaining <= 0 && !canFetch) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'load-more-wrap';
+    wrap.className = 'load-more-wrap';
+    wrap.innerHTML =
+        '<p style="font-size:.78rem;color:#94a3b8;margin-bottom:10px;">已顯示 ' + searchState.displayedCount + ' 筆' +
+        (sorted.length > searchState.displayedCount ? '，還有 ' + remaining + ' 筆未顯示' : '') +
+        (canFetch ? '，伺服器尚有更多' : '') + '</p>' +
+        (remaining > 0 ? '<button id="show-local" class="btn-load primary">↓ 顯示更多（' + Math.min(remaining, PAGE_SIZE) + ' 筆）</button>' : '') +
+        (canFetch     ? '<button id="fetch-server" class="btn-load">☁️ 從伺服器載入更多</button>' : '');
+
+    document.getElementById('results-grid').appendChild(wrap);
+
+    const sl = document.getElementById('show-local');
+    if (sl) sl.onclick = () => { renderPage(sorted, false); renderLoadMore(sorted); };
+
+    const fs = document.getElementById('fetch-server');
+    if (fs) fs.onclick = async () => {
+        fs.disabled = true; fs.textContent = '⏳ 載入中...';
+        await fetchNextBatch();
+    };
 }
 
 function renderStats(items) {
     const counts = { onenote:0, word:0, excel:0, ppt:0, pdf:0, other:0 };
     items.forEach(i => { const t = getFileType(i); counts[t] = (counts[t]||0)+1; });
-    const statsRow = document.getElementById('stats-row');
-    const chipsEl  = document.getElementById('stats-chips');
-    chipsEl.innerHTML = `<span class="stat-chip" style="font-weight:600;">共 ${items.length} 筆</span>`;
+    const row = document.getElementById('stats-row');
+    const chips = document.getElementById('stats-chips');
+    chips.innerHTML = '<span class="stat-chip" style="font-weight:600;">已取得 ' + items.length + ' 筆' + (searchState.hasMore ? '（尚有更多）' : '') + '</span>';
     Object.entries(counts).forEach(([type, count]) => {
         if (!count) return;
-        chipsEl.innerHTML += `<span class="stat-chip">${TYPE_META[type].icon} ${count}</span>`;
+        chips.innerHTML += '<span class="stat-chip">' + TYPE_META[type].icon + ' ' + count + '</span>';
     });
-    statsRow.style.display = 'flex';
-    statsRow.classList.remove('hidden');
-
-    // Show AI button only if key exists
+    row.style.display = 'flex';
+    row.classList.remove('hidden');
     const aiBtn = document.getElementById('ai-summarize-btn');
-    if (anthropicKey && items.length > 0) aiBtn.classList.remove('hidden');
-    else aiBtn.classList.add('hidden');
+    if (anthropicKey && items.length > 0) aiBtn.classList.remove('hidden'); else aiBtn.classList.add('hidden');
 }
 
-// ── MAIN SEARCH
+// ════ FETCH NEXT BATCH ════
+async function fetchNextBatch() {
+    setStatus('從伺服器載入更多...');
+    try {
+        const token = searchState.msToken || await getToken();
+        searchState.msToken = token;
+        const kw = searchState.keyword.toLowerCase();
+        let newItems = [];
+
+        if (searchState.noteNextLink) {
+            const r = await searchOneNote(token, searchState.keyword, searchState.noteNextLink);
+            newItems = newItems.concat(r.items);
+            searchState.noteNextLink = r.nextLink;
+        }
+        if (searchState.driveNextLink) {
+            try {
+                const res = await fetch(searchState.driveNextLink, { headers: { Authorization: 'Bearer ' + token } });
+                if (res.ok) {
+                    const d = await res.json();
+                    const files = (d.value || []).filter(i => i.file).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+                    newItems = newItems.concat(files);
+                    searchState.driveNextLink = d['@odata.nextLink'] || null;
+                } else { searchState.driveNextLink = null; }
+            } catch { searchState.driveNextLink = null; }
+        }
+
+        if (searchState.startDate) {
+            const ts = new Date(searchState.startDate).getTime();
+            newItems = newItems.filter(i => new Date(i.lastModifiedDateTime).getTime() >= ts);
+        }
+
+        allResults = allResults.concat(newItems);
+        searchState.hasMore = !!(searchState.noteNextLink || searchState.driveNextLink);
+        const sorted = sortResults(allResults, document.getElementById('sort-select').value);
+        renderPage(sorted, false);
+        renderLoadMore(sorted);
+        renderStats(allResults);
+        hideStatus();
+    } catch(e) { hideStatus(); log('載入更多失敗：' + e.message, 'err'); }
+}
+
+// ════ MAIN SEARCH ════
 document.getElementById('search-btn').addEventListener('click', async () => {
     if (!msalInstance) return alert('請先在設定中填入 Client ID！');
     if (!msalInstance.getAllAccounts().length) return alert('請先登入 Microsoft 帳戶！');
@@ -585,353 +566,231 @@ document.getElementById('search-btn').addEventListener('click', async () => {
     document.getElementById('stats-row').style.display = 'none';
     document.getElementById('error-bar').classList.add('hidden');
     document.getElementById('summary-progress-wrap').classList.add('hidden');
+    const dlw = document.getElementById('download-wrap');
+    if (dlw) dlw.remove();
     document.getElementById('search-btn').disabled = true;
+    allResults = [];
+    searchState = { keyword, startDate, noteNextLink:null, driveNextLink:null, msToken:null, hasMore:false, displayedCount:0 };
     setStatus('取得存取權杖...');
 
     try {
         const token = await getToken();
-        const tasks = [];
-        if (useNote)  { setStatus('搜尋 OneNote 筆記...'); tasks.push(searchOneNote(token, keyword)); }
-        if (useDrive) { setStatus('搜尋 OneDrive 檔案...'); tasks.push(searchOneDrive(token, keyword)); }
-
-        setStatus('合併結果中...');
-        const results = await Promise.allSettled(tasks);
+        searchState.msToken = token;
         let combined = [];
         const warnings = [];
-        results.forEach(r => {
-            if (r.status === 'fulfilled') combined = combined.concat(r.value);
-            else { const msg = r.reason?.message || '未知錯誤'; log(`來源失敗：${msg}`, 'err'); warnings.push(msg); }
-        });
-        if (warnings.length > 0) {
-            const warnEl = document.getElementById('error-bar');
-            warnEl.classList.remove('hidden');
-            warnEl.style.background = '#fffbeb';
-            warnEl.style.borderColor = '#fcd34d';
-            // Override the ❌ header text to ⚠️
-            warnEl.querySelector('p').textContent = '⚠️ 部分來源發生問題（OneDrive 結果仍可使用）';
-            document.getElementById('error-text').style.color = '#d97706';
-            document.getElementById('error-text').textContent = warnings.join('；');
-            const hints = [];
-            if (warnings.some(w => w.includes('400'))) hints.push('OneNote $search 對此帳號不支援（已自動改用標題篩選）');
-            if (warnings.some(w => w.includes('504') || w.includes('503'))) hints.push('OneNote 伺服器回應逾時，已取得部分結果');
-            if (warnings.some(w => w.includes('403') || w.includes('無法存取'))) hints.push('請至 Azure Portal 確認 Files.Read 權限');
-            document.getElementById('error-hint').textContent = hints.join('　·　');
+
+        if (useNote) {
+            setStatus('搜尋 OneNote...');
+            const r = await searchOneNote(token, keyword, null);
+            if (r.error) warnings.push(r.error);
+            combined = combined.concat(r.items);
+            searchState.noteNextLink = r.nextLink;
         }
+        if (useDrive) {
+            setStatus('搜尋 OneDrive...');
+            try {
+                const r = await searchOneDriveFirst(token, keyword);
+                combined = combined.concat(r.items);
+                searchState.driveNextLink = r.nextLink || null;
+            } catch(e) { warnings.push(e.message); }
+        }
+
         if (startDate) {
             const ts = new Date(startDate).getTime();
             combined = combined.filter(i => new Date(i.lastModifiedDateTime).getTime() >= ts);
-            log(`日期篩選後：${combined.length} 筆`, 'info');
         }
+
+        if (warnings.length) {
+            const bar = document.getElementById('error-bar');
+            bar.classList.remove('hidden');
+            bar.style.background = '#fffbeb'; bar.style.borderColor = '#fcd34d'; bar.style.color = '#92400e';
+            document.getElementById('error-title').textContent = '⚠️ 部分來源發生問題';
+            document.getElementById('error-text').style.color = '#d97706';
+            document.getElementById('error-text').textContent = warnings.join('；');
+            document.getElementById('error-hint').textContent = warnings.some(w=>w.includes('逾時')||w.includes('504')) ? '→ OneNote 伺服器逾時，OneDrive 結果仍可使用' : '';
+        }
+
         allResults = combined;
+        searchState.hasMore = !!(searchState.noteNextLink || searchState.driveNextLink);
+        searchState.displayedCount = 0;
         const sorted = sortResults(combined, document.getElementById('sort-select').value);
-        hideStatus(); renderStats(combined); renderResults(sorted);
+        hideStatus();
+        renderStats(combined);
+        renderPage(sorted, true);
+        renderLoadMore(sorted);
     } catch(e) {
         let hint = '';
-        if (e.message.includes('403')) hint = '→ 權限未授與，請至 Azure Portal 確認 Notes.Read 與 Files.Read 已授與。';
+        if (e.message.includes('403')) hint = '→ 請至 Azure Portal 確認 Notes.Read 與 Files.Read 已授與。';
         else if (e.message.includes('401')) hint = '→ Token 無效，請重新登入。';
         else if (e.message.includes('popup')) hint = '→ 彈出視窗被封鎖，請允許此網站的彈出視窗。';
         showError(e.message, hint);
     } finally { document.getElementById('search-btn').disabled = false; }
 });
 
-// ════════════════════════════════════════
-//  AI SUMMARY ENGINE
-// ════════════════════════════════════════
+// ════ AI SUMMARY ════
+let summaryResults = [];
 
-// 取得檔案文字內容
 async function fetchItemContent(item, msToken) {
     try {
         if (item._source === 'onenote') {
-            // OneNote: 抓 HTML 內容
-            const r = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${item.id}/content`, {
-                headers: { Authorization: `Bearer ${msToken}` }
-            });
+            const r = await fetch('https://graph.microsoft.com/v1.0/me/onenote/pages/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
             if (!r.ok) return null;
-            const html = await r.text();
-            // 去掉 HTML tag，只留純文字
             const tmp = document.createElement('div');
-            tmp.innerHTML = html;
+            tmp.innerHTML = await r.text();
             return tmp.innerText.substring(0, 6000);
-        } else {
-            // OneDrive: 抓下載串流（文字類型）
-            const type = getFileType(item);
-            if (type === 'pdf' || type === 'other') {
-                // PDF 無法直接讀文字，改用檔名+路徑做摘要
-                return null;
-            }
-            // Word/Excel/PPT 嘗試取得純文字（Graph 不直接支援，用 content 端點）
-            const r = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${item.id}/content`, {
-                headers: { Authorization: `Bearer ${msToken}` }
-            });
-            if (!r.ok) return null;
-            const blob = await r.blob();
-            // 只處理文字類型
-            if (blob.type.includes('text') || blob.type.includes('xml') || blob.type.includes('json')) {
-                return (await blob.text()).substring(0, 6000);
-            }
-            return null; // 二進位格式（docx/xlsx）無法直接讀
         }
+        const type = getFileType(item);
+        if (type === 'pdf' || type === 'other') return null;
+        const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/items/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
+        if (!r.ok) return null;
+        const blob = await r.blob();
+        if (blob.type.includes('text') || blob.type.includes('xml')) return (await blob.text()).substring(0, 6000);
+        return null;
     } catch { return null; }
 }
 
-// 呼叫 Claude API 產生摘要
-async function callClaudeForSummary(title, type, content) {
-    const typeLabel = TYPE_META[type]?.label || type;
-    let prompt;
-    if (content) {
-        prompt = `你是一個文件助理。請用繁體中文，用 3～5 句話簡潔摘要以下「${typeLabel}」文件的重點內容。\n\n文件標題：${title}\n\n文件內容（節錄）：\n${content}\n\n請直接輸出摘要，不要加前言。`;
-    } else {
-        prompt = `你是一個文件助理。根據以下「${typeLabel}」文件的標題，用繁體中文推測並寫出 1～2 句這份文件可能的用途或內容簡述。\n\n文件標題：${title}\n\n請直接輸出推測描述，不要加前言。`;
-    }
-
+async function callClaude(messages, maxTokens) {
     let res;
     try {
         res = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': anthropicKey,
-                'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-5',
-                max_tokens: 300,
-                messages: [{ role: 'user', content: prompt }]
-            })
+            headers: { 'Content-Type':'application/json', 'x-api-key':anthropicKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+            body: JSON.stringify({ model:'claude-sonnet-4-5', max_tokens: maxTokens || 400, messages })
         });
-    } catch(netErr) {
-        // 網路層錯誤（CORS、斷線等）
-        log(`Claude API 網路錯誤：${netErr.message}`, 'err');
-        throw new Error(`網路錯誤：${netErr.message}。若為 CORS 問題，請確認 API Key 正確。`);
-    }
-
-    const rawText = await res.text();
-    log(`Claude API 回應 (${res.status})：${rawText.substring(0, 120)}`, res.ok ? 'info' : 'err');
-
+    } catch(e) { throw new Error('網路錯誤：' + e.message); }
+    const raw = await res.text();
     if (!res.ok) {
-        let errMsg = `API 錯誤 (${res.status})`;
-        try {
-            const errJson = JSON.parse(rawText);
-            if (errJson?.error?.message) errMsg = errJson.error.message;
-            else if (errJson?.message) errMsg = errJson.message;
-        } catch {}
-        // 常見錯誤友善提示
-        if (res.status === 401) errMsg = 'API Key 無效，請至設定重新填入正確的 Anthropic API Key';
-        else if (res.status === 403) errMsg = 'API Key 權限不足或已停用';
-        else if (res.status === 429) errMsg = '請求太頻繁，請稍後再試（Rate limit）';
-        else if (res.status === 400) errMsg = `請求格式錯誤：${errMsg}`;
-        throw new Error(errMsg);
+        let msg = 'API 錯誤 (' + res.status + ')';
+        try { const j = JSON.parse(raw); if (j.error && j.error.message) msg = j.error.message; } catch {}
+        if (res.status === 401) msg = 'API Key 無效，請至設定重新填入';
+        else if (res.status === 429) msg = '請求太頻繁，請稍後再試';
+        throw new Error(msg);
     }
-
-    const data = JSON.parse(rawText);
-    return data.content?.[0]?.text?.trim() || '（無法取得摘要）';
+    return JSON.parse(raw).content[0].text.trim();
 }
 
-// 顯示單一摘要到卡片
-function showSummaryInCard(idx, html, isError = false) {
-    const area = document.getElementById(`summary-${idx}`);
+async function summarizeText(title, type, content) {
+    const label = TYPE_META[type] ? TYPE_META[type].label : type;
+    const prompt = content
+        ? '你是文件助理。用繁體中文 3～5 句話摘要以下「' + label + '」文件重點。\n標題：' + title + '\n內容：\n' + content + '\n直接輸出摘要，不要前言。'
+        : '你是文件助理。根據「' + label + '」文件標題，用繁體中文 1～2 句推測用途。\n標題：' + title + '\n直接輸出，不要前言。';
+    return await callClaude([{ role:'user', content: prompt }], 300);
+}
+
+// PDF Vision
+async function loadPdfJs() {
+    if (window.pdfjsLib) return;
+    await loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+}
+async function pdfToImages(blob, maxPgs) {
+    await loadPdfJs();
+    const pdf = await window.pdfjsLib.getDocument({ data: await blob.arrayBuffer() }).promise;
+    const n = Math.min(pdf.numPages, maxPgs);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const imgs = [];
+    for (let p = 1; p <= n; p++) {
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale: 1.5 });
+        canvas.width = vp.width; canvas.height = vp.height;
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        imgs.push({ pageNum: p, total: pdf.numPages, b64: canvas.toDataURL('image/jpeg', 0.8).split(',')[1], dataUrl: canvas.toDataURL('image/jpeg', 0.8) });
+    }
+    return imgs;
+}
+async function analyzePageVision(b64, pageNum, total, title) {
+    return await callClaude([{ role:'user', content:[
+        { type:'image', source:{ type:'base64', media_type:'image/jpeg', data: b64 } },
+        { type:'text', text:'這是「' + title + '」第 ' + pageNum + '/' + total + ' 頁。用繁體中文 3～5 句描述這頁主要內容（含文字重點、圖表、圖片）。直接輸出，不要前言。' }
+    ]}], 400);
+}
+
+function showSummaryInCard(idx, text, isErr) {
+    const area = document.getElementById('summary-' + idx);
     if (!area) return;
-    if (isError) {
-        area.innerHTML = `<div class="summary-err">⚠️ ${escapeHtml(html)}</div>`;
+    if (isErr) {
+        area.innerHTML = '<div class="summary-err">⚠️ ' + escHtml(text) + '</div>';
     } else {
-        area.innerHTML = `
-            <div class="summary-box">
-                <div class="summary-label">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    AI 摘要
-                </div>
-                <p>${escapeHtml(html)}</p>
-            </div>`;
+        area.innerHTML = '<div class="summary-box"><div class="summary-label">★ AI 摘要</div><p>' + escHtml(text) + '</p></div>';
     }
 }
-
 function showLoadingInCard(idx, title) {
-    const area = document.getElementById(`summary-${idx}`);
+    const area = document.getElementById('summary-' + idx);
     if (!area) return;
-    area.innerHTML = `<div class="summary-loading"><div class="summary-spinner"></div><span>分析「${escapeHtml(title.substring(0,20))}」中...</span></div>`;
+    area.innerHTML = '<div class="summary-loading"><div class="mini-spinner"></div><span>分析「' + escHtml(title.substring(0,20)) + '」中...</span></div>';
 }
 
-// 主要 AI 批次摘要
 document.getElementById('ai-summarize-btn').addEventListener('click', async () => {
-    if (!anthropicKey) {
-        alert('請先至 ⚙️ 設定 填入 Anthropic API Key！');
-        return;
-    }
+    if (!anthropicKey) return alert('請先至 ⚙️ 設定填入 Anthropic API Key！');
     if (!allResults.length) return;
 
     const sorted = sortResults(allResults, document.getElementById('sort-select').value);
     const btn = document.getElementById('ai-summarize-btn');
     btn.disabled = true;
-    btn.innerHTML = `<div class="summary-spinner" style="width:14px;height:14px;border-color:#fff;border-top-color:transparent;"></div> 摘要中...`;
+    btn.textContent = '⏳ 摘要中...';
 
-    const progressWrap = document.getElementById('summary-progress-wrap');
-    const progressBar  = document.getElementById('summary-progress-bar');
-    const progressText = document.getElementById('summary-progress-text');
-    const progressItem = document.getElementById('summary-progress-item');
-    progressWrap.classList.remove('hidden');
+    const pWrap = document.getElementById('summary-progress-wrap');
+    const pBar  = document.getElementById('summary-progress-bar');
+    const pText = document.getElementById('summary-progress-text');
+    const pItem = document.getElementById('summary-progress-item');
+    pWrap.classList.remove('hidden');
 
     let msToken;
-    try { msToken = await getToken(); } catch(e) { alert('Token 取得失敗，請重新登入'); btn.disabled = false; return; }
+    try { msToken = await getToken(); } catch(e) { alert('Token 失敗，請重新登入'); btn.disabled = false; return; }
 
     summaryResults = new Array(sorted.length);
-    await processSummaryWithVision(sorted, msToken, progressBar, progressText, progressItem);
+    const total = sorted.length;
 
-    progressBar.style.width = '100%';
-    progressText.textContent = `完成！`;
-    progressItem.textContent = `✨ 所有 ${total} 個項目摘要完成`;
+    for (let i = 0; i < total; i++) {
+        const item = sorted[i];
+        pBar.style.width = Math.round(i/total*100) + '%';
+        pText.textContent = (i+1) + ' / ' + total;
+        pItem.textContent = '📄 處理：' + (item.title || '無標題');
+        showLoadingInCard(i, item.title || '無標題');
+
+        try {
+            const type = getFileType(item);
+            if (type === 'pdf' && item._source === 'onedrive' && anthropicKey) {
+                pItem.textContent = '⬇️ 下載 PDF：' + item.title;
+                const res = await fetch('https://graph.microsoft.com/v1.0/me/drive/items/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
+                if (!res.ok) throw new Error('PDF 下載失敗 (' + res.status + ')');
+                const blob = await res.blob();
+                const imgs = await pdfToImages(blob, pdfMaxPages);
+                const pages = [];
+                for (let pi = 0; pi < imgs.length; pi++) {
+                    pItem.textContent = '🤖 AI 分析第 ' + (pi+1) + '/' + imgs.length + ' 頁';
+                    const desc = await analyzePageVision(imgs[pi].b64, imgs[pi].pageNum, imgs[pi].total, item.title);
+                    pages.push({ ...imgs[pi], description: desc });
+                    if (pi < imgs.length-1) await sleep(600);
+                }
+                const summary = pages.map(p => '第' + p.pageNum + '頁：' + p.description).join('\n');
+                summaryResults[i] = { item, summary, isError:false, pdfPages: pages };
+                showSummaryInCard(i, summary);
+            } else {
+                const content = await fetchItemContent(item, msToken);
+                const summary = await summarizeText(item.title || '無標題', type, content);
+                summaryResults[i] = { item, summary, isError:false };
+                showSummaryInCard(i, summary);
+            }
+            log('✓ ' + item.title, 'ok');
+        } catch(e) {
+            log('✗ ' + item.title + '：' + e.message, 'err');
+            summaryResults[i] = { item, summary: e.message, isError:true };
+            showSummaryInCard(i, e.message, true);
+        }
+        if (i < total-1) await sleep(800);
+    }
+
+    pBar.style.width = '100%';
+    pText.textContent = '完成！';
+    pItem.textContent = '✨ 所有 ' + total + ' 個項目摘要完成';
     btn.disabled = false;
-    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ✨ 重新摘要`;
+    btn.textContent = '✨ 重新摘要';
     showDownloadButtons(sorted, summaryResults);
 });
 
-// ── 儲存摘要結果供下載
-let summaryResults = [];
-
-
-// ── 下載按鈕區
-function showDownloadButtons(items, summaries) {
-    let wrap = document.getElementById('download-wrap');
-    if (!wrap) {
-        wrap = document.createElement('div');
-        wrap.id = 'download-wrap';
-        const progressWrap = document.getElementById('summary-progress-wrap');
-        progressWrap.insertAdjacentElement('afterend', wrap);
-    }
-    wrap.style.cssText = 'background:#fff;border:1px solid #e4e4ef;border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 12px rgba(15,15,26,.06);margin-top:0;';
-    wrap.innerHTML = `
-        <div>
-            <p style="font-weight:700;font-size:0.95rem;color:#1e1e35;">📥 匯出摘要報告</p>
-            <p style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">將所有 ${items.length} 筆摘要彙整成檔案下載</p>
-        </div>
-        <div style="display:flex;g// ── 儲存摘要結果供下載
-let summaryResults = [];
-
-// ══════════════════════════════════════════════
-//  PDF.js ENGINE — 每頁渲染成 base64 截圖
-// ══════════════════════════════════════════════
-async function loadPdfJs() {
-    if (window.pdfjsLib) return;
-    await loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js');
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-    log('PDF.js 載入完成', 'ok');
-}
-
-async function pdfBlobToPageImages(pdfBlob, maxPages) {
-    await loadPdfJs();
-    const arrayBuf = await pdfBlob.arrayBuffer();
-    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
-    const totalPages = pdf.numPages;
-    const pagesToRender = Math.min(totalPages, maxPages);
-    log(`PDF 共 ${totalPages} 頁，渲染前 ${pagesToRender} 頁`, 'info');
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const images = [];
-    for (let p = 1; p <= pagesToRender; p++) {
-        const page = await pdf.getPage(p);
-        const vp = page.getViewport({ scale: 1.5 });
-        canvas.width = vp.width; canvas.height = vp.height;
-        await page.render({ canvasContext: ctx, viewport: vp }).promise;
-        const b64 = canvas.toDataURL('image/jpeg', 0.80).split(',')[1];
-        images.push({ pageNum: p, totalPages, b64, dataUrl: 'data:image/jpeg;base64,' + b64 });
-        log(`  第 ${p}/${pagesToRender} 頁渲染完成`, 'info');
-    }
-    return images;
-}
-
-async function fetchPdfBlob(item, msToken) {
-    const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${item.id}/content`,
-        { headers: { Authorization: `Bearer ${msToken}` } });
-    if (!res.ok) throw new Error(`PDF 下載失敗 (${res.status})`);
-    return await res.blob();
-}
-
-// Claude Vision 分析單頁
-async function analyzePageVision(b64, pageNum, totalPages, title) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-            model: 'claude-sonnet-4-5',
-            max_tokens: 400,
-            messages: [{
-                role: 'user',
-                content: [
-                    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-                    { type: 'text', text: `這是「${title}」的第 ${pageNum}/${totalPages} 頁。請用繁體中文簡述這頁的主要內容，包括文字重點、圖表、圖片說明（如有）。3～5 句話，直接輸出，不要前言。` }
-                ]
-            }]
-        })
-    });
-    const raw = await res.text();
-    if (!res.ok) {
-        const err = JSON.parse(raw).error?.message || `Vision API 錯誤 (${res.status})`;
-        throw new Error(err);
-    }
-    return JSON.parse(raw).content?.[0]?.text?.trim() || '（無法取得描述）';
-}
-
-// ══════════════════════════════════════════════
-//  SUMMARY LOOP — 含 PDF Vision 分支
-// ══════════════════════════════════════════════
-async function processSummaryWithVision(sorted, msToken, progressBar, progressText, progressItem) {
-    const total = sorted.length;
-    for (let i = 0; i < total; i++) {
-        const item = sorted[i];
-        const pct = Math.round((i / total) * 100);
-        progressBar.style.width = pct + '%';
-        progressText.textContent = `${i+1} / ${total}`;
-        progressItem.textContent = `📄 正在處理：${item.title || '無標題'}`;
-        showLoadingInCard(i, item.title || '無標題');
-
-        const fileType = getFileType(item);
-
-        try {
-            if (fileType === 'pdf' && item._source === 'onedrive' && anthropicKey) {
-                // PDF Vision 路徑
-                progressItem.textContent = `🔍 下載 PDF：${item.title}`;
-                const pdfBlob = await fetchPdfBlob(item, msToken);
-                const maxPgs  = parseInt(localStorage.getItem('pdf_max_pages') || '10');
-                const images  = await pdfBlobToPageImages(pdfBlob, maxPgs);
-
-                const pageDescriptions = [];
-                for (let pi = 0; pi < images.length; pi++) {
-                    progressItem.textContent = `🤖 AI 分析第 ${pi+1}/${images.length} 頁：${item.title}`;
-                    const desc = await analyzePageVision(images[pi].b64, images[pi].pageNum, images[pi].totalPages, item.title);
-                    pageDescriptions.push({ ...images[pi], description: desc });
-                    log(`  PDF 第 ${images[pi].pageNum} 頁描述完成`, 'ok');
-                    if (pi < images.length - 1) await new Promise(r => setTimeout(r, 600));
-                }
-
-                const summary = pageDescriptions.map(p => `第${p.pageNum}頁：${p.description}`).join('\n');
-                summaryResults[i] = { item, summary, isError: false, pdfPages: pageDescriptions };
-                showSummaryInCard(i, summary);
-                log(`✓ PDF 摘要完成：${item.title}（${images.length} 頁）`, 'ok');
-            } else {
-                // 一般文字摘要路徑
-                const content = await fetchItemContent(item, msToken);
-                const summary = await callClaudeForSummary(item.title || '無標題', fileType, content);
-                summaryResults[i] = { item, summary, isError: false };
-                showSummaryInCard(i, summary);
-                log(`✓ 摘要完成：${item.title}`, 'ok');
-            }
-        } catch(e) {
-            log(`✗ 失敗：${item.title} — ${e.message}`, 'err');
-            summaryResults[i] = { item, summary: e.message, isError: true };
-            showSummaryInCard(i, e.message, true);
-        }
-
-        if (i < total - 1) await new Promise(r => setTimeout(r, 800));
-    }
-}
-
-// ── 下載按鈕區
+// ════ REPORT / DOWNLOAD ════
 function showDownloadButtons(items, summaries) {
     let wrap = document.getElementById('download-wrap');
     if (!wrap) {
@@ -939,181 +798,131 @@ function showDownloadButtons(items, summaries) {
         wrap.id = 'download-wrap';
         document.getElementById('summary-progress-wrap').insertAdjacentElement('afterend', wrap);
     }
-    wrap.style.cssText = 'background:#fff;border:1px solid #e4e4ef;border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 12px rgba(15,15,26,.06);';
-    wrap.innerHTML = `
-        <div>
-            <p style="font-weight:700;font-size:0.95rem;color:#1e1e35;">📥 匯出摘要報告</p>
-            <p style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">共 ${items.length} 筆，含 PDF 頁面截圖</p>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button id="dl-html-btn" style="background:#059669;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
-                📄 下載 HTML 報告
-            </button>
-            <button id="dl-pdf-btn" style="background:#be123c;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
-                🖨️ 預覽並存成 PDF
-            </button>
-        </div>`;
-    document.getElementById('dl-html-btn').onclick = () => downloadHtmlReport(items, summaries);
-    document.getElementById('dl-pdf-btn').onclick  = () => previewAndPrint(items, summaries);
+    wrap.style.cssText = 'background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;';
+    wrap.innerHTML =
+        '<div><p style="font-weight:700;">📥 匯出摘要報告</p><p style="font-size:.78rem;color:#94a3b8;margin-top:2px;">共 ' + items.length + ' 筆，含 PDF 頁面截圖</p></div>' +
+        '<div style="display:flex;gap:10px;flex-wrap:wrap;">' +
+            '<button id="dl-html-btn" style="background:#059669;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:\'Sora\',sans-serif;font-weight:600;font-size:.85rem;cursor:pointer;">📄 下載 HTML 報告</button>' +
+            '<button id="dl-pdf-btn"  style="background:#be123c;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:\'Sora\',sans-serif;font-weight:600;font-size:.85rem;cursor:pointer;">🖨️ 預覽並存成 PDF</button>' +
+        '</div>';
+    document.getElementById('dl-html-btn').onclick = () => downloadHtml(items, summaries);
+    document.getElementById('dl-pdf-btn').onclick  = () => previewPrint(items, summaries);
 }
 
-// ── 產生報告 HTML 字串（共用）
 function buildReportHtml(items, summaries) {
     const keyword = document.getElementById('keyword').value.trim();
-    const now     = new Date().toLocaleString('zh-TW');
-
+    const now = new Date().toLocaleString('zh-TW');
     let body = '';
     items.forEach((item, i) => {
-        const sr       = summaries[i] || {};
-        const fileType = getFileType(item);
-        const meta     = TYPE_META[fileType] || TYPE_META.other;
-        const date     = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
-        const url      = item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '') : (item.webUrl || '');
-        const summaryText = sr.isError ? `（處理失敗：${sr.summary}）` : (sr.summary || '（尚未摘要）');
-        const hasPdfPages = !sr.isError && sr.pdfPages && sr.pdfPages.length > 0;
-
-        let pagesSect = '';
-        if (hasPdfPages) {
-            pagesSect = `<div class="pages-grid">`;
-            sr.pdfPages.forEach(pg => {
-                pagesSect += `
-                <div class="page-card">
-                    <div class="page-num">第 ${pg.pageNum} / ${pg.totalPages} 頁</div>
-                    <img src="${pg.dataUrl}" class="page-img" alt="第${pg.pageNum}頁截圖">
-                    <div class="page-desc">${pg.description.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
-                </div>`;
-            });
-            pagesSect += `</div>`;
-        } else {
-            // 非 PDF：顯示純文字摘要
-            pagesSect = `<div class="summary-text">${summaryText.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
-        }
-
-        body += `
-        <div class="item">
-            <div class="item-header">
-                <div>
-                    <span class="badge badge-${fileType}">${meta.label}</span>
-                    <span class="item-title">${item.title || '無標題'}</span>
-                </div>
-                <div class="item-meta">${item._source === 'onedrive' ? '☁️ OneDrive' : '📒 OneNote'} &nbsp;·&nbsp; 修改：${date}</div>
-            </div>
-            ${url ? `<a class="item-url" href="${url}" target="_blank">🔗 開啟原始檔案</a>` : ''}
-            <div class="section-label">✨ AI ${hasPdfPages ? '逐頁分析' : '摘要'}</div>
-            ${pagesSect}
-        </div>`;
+        const sr   = summaries[i] || {};
+        const type = getFileType(item);
+        const meta = TYPE_META[type] || TYPE_META.other;
+        const date = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
+        const url  = item._source === 'onenote' ? (item.links && item.links.oneNoteWebUrl ? item.links.oneNoteWebUrl.href : '') : (item.webUrl || '');
+        const txt  = sr.isError ? '（處理失敗：' + sr.summary + '）' : (sr.summary || '（尚未摘要）');
+        const hasPdf = !sr.isError && sr.pdfPages && sr.pdfPages.length > 0;
+        let sect = hasPdf
+            ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:0 20px 20px;">' +
+              sr.pdfPages.map(pg =>
+                  '<div style="border:1px solid #e4e4ef;border-radius:10px;overflow:hidden;">' +
+                  '<div style="background:#5b4cf5;color:#fff;font-size:11px;font-weight:700;padding:5px 12px;">第 ' + pg.pageNum + ' / ' + pg.total + ' 頁</div>' +
+                  '<img src="' + pg.dataUrl + '" style="width:100%;display:block;">' +
+                  '<div style="padding:10px 12px;font-size:12px;line-height:1.65;color:#374151;">' + pg.description.replace(/</g,'&lt;').replace(/\n/g,'<br>') + '</div>' +
+                  '</div>'
+              ).join('') + '</div>'
+            : '<div style="margin:0 20px 18px;font-size:13px;line-height:1.75;color:#374151;background:#faf5ff;border-left:3px solid #7c3aed;padding:10px 14px;border-radius:0 8px 8px 0;">' + txt.replace(/</g,'&lt;').replace(/\n/g,'<br>') + '</div>';
+        body +=
+            '<div style="background:#fff;border:1px solid #e4e4ef;border-radius:16px;overflow:hidden;break-inside:avoid;margin-bottom:20px;">' +
+            '<div style="padding:16px 20px 10px;border-bottom:1px solid #f1f1f8;">' +
+                '<span style="display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;' + (type==='pdf'?'background:#ffe4e6;color:#9f1239;':type==='word'?'background:#e0f2fe;color:#0369a1;':type==='excel'?'background:#d1fae5;color:#065f46;':type==='ppt'?'background:#fef3c7;color:#92400e;':'background:#ede9ff;color:#5b4cf5;') + '">' + meta.label + '</span>' +
+                '<span style="font-size:16px;font-weight:700;margin-left:8px;">' + escHtml(item.title||'無標題') + '</span>' +
+                '<div style="font-size:12px;color:#94a3b8;margin-top:6px;">' + (item._source==='onedrive'?'☁️ OneDrive':'📒 OneNote') + ' · 修改：' + date + '</div>' +
+            '</div>' +
+            (url ? '<a href="' + url + '" target="_blank" style="display:inline-block;font-size:12px;color:#5b4cf5;padding:6px 20px 8px;text-decoration:none;">🔗 開啟原始檔案</a>' : '') +
+            '<div style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;padding:10px 20px 6px;">★ AI ' + (hasPdf ? '逐頁分析' : '摘要') + '</div>' +
+            sect +
+            '</div>';
     });
-
-    return `<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>摘要報告 — ${keyword}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif; background:#f5f5f8; color:#1e1e35; }
-  .report-header { background: linear-gradient(135deg,#5b4cf5,#7c3aed); color:#fff; padding:40px 48px 32px; }
-  .report-header h1 { font-size:26px; font-weight:700; margin-bottom:8px; }
-  .report-header .meta { font-size:13px; opacity:.85; }
-  .report-body { max-width:900px; margin:32px auto; padding:0 24px 60px; display:flex; flex-direction:column; gap:24px; }
-  .item { background:#fff; border:1px solid #e4e4ef; border-radius:16px; overflow:hidden; break-inside:avoid; }
-  .item-header { padding:18px 20px 10px; border-bottom:1px solid #f1f1f8; }
-  .item-title { font-size:16px; font-weight:700; margin-left:8px; }
-  .item-meta { font-size:12px; color:#94a3b8; margin-top:6px; }
-  .item-url { display:inline-block; font-size:12px; color:#5b4cf5; padding:4px 20px 10px; text-decoration:none; }
-  .item-url:hover { text-decoration:underline; }
-  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; }
-  .badge-onenote { background:#ede9ff; color:#5b4cf5; }
-  .badge-word    { background:#e0f2fe; color:#0369a1; }
-  .badge-excel   { background:#d1fae5; color:#065f46; }
-  .badge-ppt     { background:#fef3c7; color:#92400e; }
-  .badge-pdf     { background:#ffe4e6; color:#9f1239; }
-  .badge-other   { background:#f1f5f9; color:#475569; }
-  .section-label { font-size:11px; font-weight:700; color:#7c3aed; text-transform:uppercase; letter-spacing:.08em; padding:12px 20px 8px; }
-  .summary-text { margin:0 20px 18px; font-size:13px; line-height:1.75; color:#374151; background:#faf5ff; border-left:3px solid #7c3aed; padding:10px 14px; border-radius:0 8px 8px 0; }
-  .pages-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:0 20px 20px; }
-  .page-card { border:1px solid #e4e4ef; border-radius:12px; overflow:hidden; }
-  .page-num { background:#5b4cf5; color:#fff; font-size:11px; font-weight:700; padding:5px 12px; }
-  .page-img { width:100%; display:block; }
-  .page-desc { padding:10px 12px; font-size:12px; line-height:1.65; color:#374151; background:#fafafa; }
-  @media print {
-    body { background:#fff; }
-    .item { break-inside:avoid; box-shadow:none; }
-    .pages-grid { grid-template-columns:repeat(2,1fr); }
-    a { color:#5b4cf5 !important; }
-  }
-</style>
-</head>
-<body>
-<div class="report-header">
-    <h1>📄 檔案摘要報告</h1>
-    <div class="meta">搜尋關鍵字：${keyword} &nbsp;·&nbsp; 產生時間：${now} &nbsp;·&nbsp; 共 ${items.length} 筆</div>
-</div>
-<div class="report-body">${body}</div>
-</body></html>`;
+    return '<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="UTF-8"><title>摘要報告 ' + keyword + '</title>' +
+        '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:\'Microsoft JhengHei\',\'PingFang TC\',sans-serif;background:#f5f5f8;}' +
+        '.header{background:linear-gradient(135deg,#5b4cf5,#7c3aed);color:#fff;padding:36px 48px 28px;}' +
+        '.header h1{font-size:24px;font-weight:700;margin-bottom:6px;}' +
+        '.header p{font-size:13px;opacity:.85;}' +
+        '.body{max-width:900px;margin:28px auto;padding:0 24px 60px;}' +
+        '@media print{body{background:#fff;}.header{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style>' +
+        '</head><body>' +
+        '<div class="header"><h1>📄 檔案摘要報告</h1><p>搜尋關鍵字：' + keyword + ' &nbsp;·&nbsp; ' + now + ' &nbsp;·&nbsp; 共 ' + items.length + ' 筆</p></div>' +
+        '<div class="body">' + body + '</div></body></html>';
 }
 
-// ── 下載 HTML 報告
-async function downloadHtmlReport(items, summaries) {
+async function downloadHtml(items, summaries) {
     const btn = document.getElementById('dl-html-btn');
     btn.textContent = '⏳ 產生中...'; btn.disabled = true;
     try {
-        const keyword = document.getElementById('keyword').value.trim();
         const html = buildReportHtml(items, summaries);
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.html`);
+        triggerDownload(blob, '摘要報告_' + document.getElementById('keyword').value.trim() + '_' + fmtDate() + '.html');
         log('HTML 報告下載成功', 'ok');
-    } catch(e) {
-        log('HTML 報告失敗：' + e.message, 'err');
-        alert('HTML 報告產生失敗：' + e.message);
-    } finally {
-        btn.innerHTML = '📄 下載 HTML 報告'; btn.disabled = false;
-    }
+    } catch(e) { alert('HTML 產生失敗：' + e.message); }
+    finally { btn.textContent = '📄 下載 HTML 報告'; btn.disabled = false; }
 }
 
-// ── 預覽並存成 PDF（開新視窗列印）
-async function previewAndPrint(items, summaries) {
+async function previewPrint(items, summaries) {
     const btn = document.getElementById('dl-pdf-btn');
     btn.textContent = '⏳ 產生中...'; btn.disabled = true;
     try {
         const html = buildReportHtml(items, summaries);
         const win = window.open('', '_blank');
-        if (!win) { alert('彈出視窗被封鎖，請允許此網站的彈出視窗後再試。'); return; }
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        // 等圖片載入後再列印
-        setTimeout(() => { try { win.print(); } catch(e) {} }, 1200);
-        log('報告預覽已開啟，請在新視窗選「儲存為 PDF」', 'ok');
-    } catch(e) {
-        log('PDF 預覽失敗：' + e.message, 'err');
-        alert('PDF 預覽失敗：' + e.message);
-    } finally {
-        btn.innerHTML = '🖨️ 預覽並存成 PDF'; btn.disabled = false;
-    }
+        if (!win) return alert('彈出視窗被封鎖，請允許後再試。');
+        win.document.write(html); win.document.close(); win.focus();
+        setTimeout(() => { try { win.print(); } catch {} }, 1200);
+        log('PDF 預覽已開啟', 'ok');
+    } catch(e) { alert('PDF 預覽失敗：' + e.message); }
+    finally { btn.textContent = '🖨️ 預覽並存成 PDF'; btn.disabled = false; }
 }
 
-// ── HELPERS
+// ════ HELPERS ════
 function loadScript(src) {
     return new Promise((res, rej) => {
-        if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+        if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
         const s = document.createElement('script');
         s.src = src; s.onload = res; s.onerror = () => rej(new Error('載入失敗：' + src));
         document.head.appendChild(s);
     });
 }
-function triggerDownload(blob, filename) {
+function triggerDownload(blob, name) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
+    a.href = url; a.download = name;
     document.body.appendChild(a); a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 3000);
 }
-function formatDate() {
+function fmtDate() {
     const d = new Date();
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0');
 }
-
-// ── UI HELPERS
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setStatus(msg) {
+    document.getElementById('status-bar').classList.remove('hidden');
+    document.getElementById('status-text').textContent = msg;
+    document.getElementById('error-bar').classList.add('hidden');
+}
+function hideStatus() { document.getElementById('status-bar').classList.add('hidden'); }
+function showError(msg, hint) {
+    hideStatus();
+    const bar = document.getElementById('error-bar');
+    bar.classList.remove('hidden');
+    bar.style.background = '#fff1f2'; bar.style.borderColor = '#fecdd3';
+    document.getElementById('error-title').textContent = '❌ 發生錯誤';
+    document.getElementById('error-text').style.color = '#e11d48';
+    document.getElementById('error-text').textContent = msg;
+    document.getElementById('error-hint').textContent = hint || '';
+    log('錯誤：' + msg, 'err');
+}
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
