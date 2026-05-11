@@ -194,6 +194,9 @@
         <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Anthropic API Key</label>
         <input type="password" id="config-anthropic-key" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;" placeholder="sk-ant-api03-...">
 
+        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;margin-top:14px;">📄 PDF AI 分析最大頁數（每頁費用約 $0.003）</label>
+        <input type="number" id="config-pdf-max-pages" min="1" max="100" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;" placeholder="預設 10 頁">
+
         <button id="save-config" class="btn-search" style="width:100%;">💾 儲存並重新載入</button>
     </div>
 </div>
@@ -302,6 +305,8 @@ let anthropicKey   = localStorage.getItem('anthropic_api_key') || '';
 
 document.getElementById('config-client-id').value = activeClientId;
 document.getElementById('config-anthropic-key').value = anthropicKey;
+let pdfMaxPages = parseInt(localStorage.getItem('pdf_max_pages') || '10');
+document.getElementById('config-pdf-max-pages').value = pdfMaxPages;
 document.getElementById('show-redirect-uri').textContent = window.location.origin + window.location.pathname;
 
 document.getElementById('settings-open').onclick = () => document.getElementById('settings-overlay').classList.remove('hidden');
@@ -312,6 +317,8 @@ document.getElementById('save-config').onclick = () => {
     localStorage.setItem('onenote_client_id', clientId);
     if (apiKey) localStorage.setItem('anthropic_api_key', apiKey);
     else localStorage.removeItem('anthropic_api_key');
+    const maxPages = parseInt(document.getElementById('config-pdf-max-pages').value) || 10;
+    localStorage.setItem('pdf_max_pages', maxPages);
     window.location.reload();
 };
 
@@ -387,6 +394,7 @@ function getFileType(item) {
     if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) return 'excel';
     if (name.endsWith('.pptx') || name.endsWith('.ppt')) return 'ppt';
     if (name.endsWith('.pdf')) return 'pdf';
+    if (name.endsWith('.one')) return 'onenote';
     return 'other';
 }
 const TYPE_META = {
@@ -400,31 +408,50 @@ const TYPE_META = {
 
 // ── SEARCH: OneNote
 async function searchOneNote(token, keyword) {
-    log('搜尋 OneNote...', 'info');
-    const url = `https://graph.microsoft.com/v1.0/me/onenote/pages?$search="${encodeURIComponent(keyword)}"&$select=id,title,lastModifiedDateTime,links&$top=50`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (res.ok) {
-        const data = await res.json();
-        const pages = (data.value || []).map(p => ({ ...p, _source: 'onenote' }));
-        log(`OneNote $search：${pages.length} 筆`, 'ok');
-        if (pages.length > 0) return pages;
-        log('$search 回傳 0，改用 fallback', 'warn');
-    } else {
-        log(`OneNote $search 失敗 (${res.status})，改 fallback`, 'warn');
-    }
-    // fallback
-    let nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100`;
-    let all = [], page = 0;
-    while (nextLink && page < 2) {
-        const r2 = await fetch(nextLink, { headers: { Authorization: `Bearer ${token}` } });
-        if (!r2.ok) throw new Error(`OneNote API 錯誤 (${r2.status})`);
-        const d = await r2.json();
-        all = all.concat(d.value || []);
-        nextLink = d['@odata.nextLink'] || null; page++;
-    }
+    log('搜尋 OneNote（標題篩選模式）...', 'info');
     const kw = keyword.toLowerCase();
+    let all = [], nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100&$orderby=lastModifiedDateTime desc`;
+    let pageCount = 0;
+    const MAX_PAGES = 5; // 最多抓 500 筆，避免 504 timeout
+
+    while (nextLink && pageCount < MAX_PAGES) {
+        try {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 12000); // 12 秒 timeout
+            const r = await fetch(nextLink, {
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
+            });
+            clearTimeout(tid);
+
+            if (!r.ok) {
+                const status = r.status;
+                if (status === 504 || status === 503) {
+                    log(`OneNote 第 ${pageCount+1} 頁 timeout (${status})，已取得 ${all.length} 筆停止`, 'warn');
+                    break; // 不拋錯，用已取得的資料
+                }
+                if (status === 400) {
+                    log(`OneNote API 400 錯誤，可能帳號不支援此查詢，已取得 ${all.length} 筆`, 'warn');
+                    break;
+                }
+                throw new Error(`OneNote API 錯誤 (${status})`);
+            }
+            const d = await r.json();
+            all = all.concat(d.value || []);
+            nextLink = d['@odata.nextLink'] || null;
+            pageCount++;
+            log(`OneNote 第 ${pageCount} 頁：累計 ${all.length} 筆`, 'info');
+        } catch(e) {
+            if (e.name === 'AbortError') {
+                log(`OneNote 第 ${pageCount+1} 頁請求逾時，已取得 ${all.length} 筆停止`, 'warn');
+                break;
+            }
+            throw e;
+        }
+    }
+
     const filtered = all.filter(p => p.title?.toLowerCase().includes(kw)).map(p => ({ ...p, _source: 'onenote' }));
-    log(`OneNote fallback：${filtered.length}／${all.length} 筆`, 'ok');
+    log(`OneNote 篩選完成：${filtered.length}／${all.length} 筆符合「${keyword}」`, 'ok');
     return filtered;
 }
 
@@ -577,11 +604,18 @@ document.getElementById('search-btn').addEventListener('click', async () => {
         });
         if (warnings.length > 0) {
             const warnEl = document.getElementById('error-bar');
-            warnEl.classList.remove('hidden'); warnEl.style.background='#fffbeb'; warnEl.style.borderColor='#fcd34d';
-            document.getElementById('error-text').style.color='#d97706';
-            document.getElementById('error-text').textContent = '⚠️ 部分來源失敗：' + warnings.join('；');
-            document.getElementById('error-hint').textContent = warnings.some(w=>w.includes('403')||w.includes('無法存取'))
-                ? '→ 請至 Azure Portal 確認 Files.Read 權限已授與。' : '';
+            warnEl.classList.remove('hidden');
+            warnEl.style.background = '#fffbeb';
+            warnEl.style.borderColor = '#fcd34d';
+            // Override the ❌ header text to ⚠️
+            warnEl.querySelector('p').textContent = '⚠️ 部分來源發生問題（OneDrive 結果仍可使用）';
+            document.getElementById('error-text').style.color = '#d97706';
+            document.getElementById('error-text').textContent = warnings.join('；');
+            const hints = [];
+            if (warnings.some(w => w.includes('400'))) hints.push('OneNote $search 對此帳號不支援（已自動改用標題篩選）');
+            if (warnings.some(w => w.includes('504') || w.includes('503'))) hints.push('OneNote 伺服器回應逾時，已取得部分結果');
+            if (warnings.some(w => w.includes('403') || w.includes('無法存取'))) hints.push('請至 Azure Portal 確認 Files.Read 權限');
+            document.getElementById('error-hint').textContent = hints.join('　·　');
         }
         if (startDate) {
             const ts = new Date(startDate).getTime();
@@ -740,30 +774,8 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
     let msToken;
     try { msToken = await getToken(); } catch(e) { alert('Token 取得失敗，請重新登入'); btn.disabled = false; return; }
 
-    const total = sorted.length;
-    for (let i = 0; i < sorted.length; i++) {
-        const item = sorted[i];
-        const pct  = Math.round((i / total) * 100);
-        progressBar.style.width = pct + '%';
-        progressText.textContent = `${i+1} / ${total}`;
-        progressItem.textContent = `📄 正在處理：${item.title || '無標題'}`;
-        showLoadingInCard(i, item.title || '無標題');
-
-        try {
-            const content = await fetchItemContent(item, msToken);
-            const summary = await callClaudeForSummary(item.title || '無標題', getFileType(item), content);
-            summaryResults[i] = { item, summary, isError: false };
-            showSummaryInCard(i, summary);
-            log(`✓ 摘要完成：${item.title}`, 'ok');
-        } catch(e) {
-            log(`✗ 摘要失敗：${item.title} — ${e.message}`, 'err');
-            summaryResults[i] = { item, summary: e.message, isError: true };
-            showSummaryInCard(i, e.message, true);
-        }
-
-        // 避免 rate limit，每次間隔 800ms
-        if (i < sorted.length - 1) await new Promise(r => setTimeout(r, 800));
-    }
+    summaryResults = new Array(sorted.length);
+    await processSummaryWithVision(sorted, msToken, progressBar, progressText, progressItem);
 
     progressBar.style.width = '100%';
     progressText.textContent = `完成！`;
@@ -792,182 +804,300 @@ function showDownloadButtons(items, summaries) {
             <p style="font-weight:700;font-size:0.95rem;color:#1e1e35;">📥 匯出摘要報告</p>
             <p style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">將所有 ${items.length} 筆摘要彙整成檔案下載</p>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <button id="dl-word-btn" style="background:#0369a1;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                下載 Word (.docx)
-            </button>
-            <button id="dl-pdf-btn" style="background:#be123c;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                下載 PDF
-            </button>
-        </div>`;
-    document.getElementById('dl-word-btn').onclick = () => downloadWord(items, summaries);
-    document.getElementById('dl-pdf-btn').onclick  = () => downloadPdf(items, summaries);
+        <div style="display:flex;g// ── 儲存摘要結果供下載
+let summaryResults = [];
+
+// ══════════════════════════════════════════════
+//  PDF.js ENGINE — 每頁渲染成 base64 截圖
+// ══════════════════════════════════════════════
+async function loadPdfJs() {
+    if (window.pdfjsLib) return;
+    await loadScript('https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js');
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    log('PDF.js 載入完成', 'ok');
 }
 
-// ── BUILD REPORT DATA
-function buildReportData(items, summaries) {
-    const keyword = document.getElementById('keyword').value.trim();
-    const now = new Date().toLocaleString('zh-TW');
-    const rows = items.map((item, i) => {
-        const sr = summaries[i] || {};
-        return {
-            title:   item.title || '無標題',
-            type:    TYPE_META[getFileType(item)]?.label || getFileType(item),
-            source:  item._source === 'onenote' ? 'OneNote' : 'OneDrive',
-            date:    new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW'),
-            summary: sr.isError ? `（摘要失敗：${sr.summary}）` : (sr.summary || '（尚未摘要）'),
-            url:     item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '') : (item.webUrl || '')
-        };
+async function pdfBlobToPageImages(pdfBlob, maxPages) {
+    await loadPdfJs();
+    const arrayBuf = await pdfBlob.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+    const totalPages = pdf.numPages;
+    const pagesToRender = Math.min(totalPages, maxPages);
+    log(`PDF 共 ${totalPages} 頁，渲染前 ${pagesToRender} 頁`, 'info');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const images = [];
+    for (let p = 1; p <= pagesToRender; p++) {
+        const page = await pdf.getPage(p);
+        const vp = page.getViewport({ scale: 1.5 });
+        canvas.width = vp.width; canvas.height = vp.height;
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        const b64 = canvas.toDataURL('image/jpeg', 0.80).split(',')[1];
+        images.push({ pageNum: p, totalPages, b64, dataUrl: 'data:image/jpeg;base64,' + b64 });
+        log(`  第 ${p}/${pagesToRender} 頁渲染完成`, 'info');
+    }
+    return images;
+}
+
+async function fetchPdfBlob(item, msToken) {
+    const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${item.id}/content`,
+        { headers: { Authorization: `Bearer ${msToken}` } });
+    if (!res.ok) throw new Error(`PDF 下載失敗 (${res.status})`);
+    return await res.blob();
+}
+
+// Claude Vision 分析單頁
+async function analyzePageVision(b64, pageNum, totalPages, title) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-5',
+            max_tokens: 400,
+            messages: [{
+                role: 'user',
+                content: [
+                    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+                    { type: 'text', text: `這是「${title}」的第 ${pageNum}/${totalPages} 頁。請用繁體中文簡述這頁的主要內容，包括文字重點、圖表、圖片說明（如有）。3～5 句話，直接輸出，不要前言。` }
+                ]
+            }]
+        })
     });
-    return { keyword, now, rows };
+    const raw = await res.text();
+    if (!res.ok) {
+        const err = JSON.parse(raw).error?.message || `Vision API 錯誤 (${res.status})`;
+        throw new Error(err);
+    }
+    return JSON.parse(raw).content?.[0]?.text?.trim() || '（無法取得描述）';
 }
 
-// ── DOWNLOAD WORD
-async function downloadWord(items, summaries) {
-    const btn = document.getElementById('dl-word-btn');
-    btn.textContent = '⏳ 產生中...'; btn.disabled = true;
-    try {
-        // 動態載入 docx.js
-        if (!window.docx) {
-            await loadScript('https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js');
+// ══════════════════════════════════════════════
+//  SUMMARY LOOP — 含 PDF Vision 分支
+// ══════════════════════════════════════════════
+async function processSummaryWithVision(sorted, msToken, progressBar, progressText, progressItem) {
+    const total = sorted.length;
+    for (let i = 0; i < total; i++) {
+        const item = sorted[i];
+        const pct = Math.round((i / total) * 100);
+        progressBar.style.width = pct + '%';
+        progressText.textContent = `${i+1} / ${total}`;
+        progressItem.textContent = `📄 正在處理：${item.title || '無標題'}`;
+        showLoadingInCard(i, item.title || '無標題');
+
+        const fileType = getFileType(item);
+
+        try {
+            if (fileType === 'pdf' && item._source === 'onedrive' && anthropicKey) {
+                // PDF Vision 路徑
+                progressItem.textContent = `🔍 下載 PDF：${item.title}`;
+                const pdfBlob = await fetchPdfBlob(item, msToken);
+                const maxPgs  = parseInt(localStorage.getItem('pdf_max_pages') || '10');
+                const images  = await pdfBlobToPageImages(pdfBlob, maxPgs);
+
+                const pageDescriptions = [];
+                for (let pi = 0; pi < images.length; pi++) {
+                    progressItem.textContent = `🤖 AI 分析第 ${pi+1}/${images.length} 頁：${item.title}`;
+                    const desc = await analyzePageVision(images[pi].b64, images[pi].pageNum, images[pi].totalPages, item.title);
+                    pageDescriptions.push({ ...images[pi], description: desc });
+                    log(`  PDF 第 ${images[pi].pageNum} 頁描述完成`, 'ok');
+                    if (pi < images.length - 1) await new Promise(r => setTimeout(r, 600));
+                }
+
+                const summary = pageDescriptions.map(p => `第${p.pageNum}頁：${p.description}`).join('\n');
+                summaryResults[i] = { item, summary, isError: false, pdfPages: pageDescriptions };
+                showSummaryInCard(i, summary);
+                log(`✓ PDF 摘要完成：${item.title}（${images.length} 頁）`, 'ok');
+            } else {
+                // 一般文字摘要路徑
+                const content = await fetchItemContent(item, msToken);
+                const summary = await callClaudeForSummary(item.title || '無標題', fileType, content);
+                summaryResults[i] = { item, summary, isError: false };
+                showSummaryInCard(i, summary);
+                log(`✓ 摘要完成：${item.title}`, 'ok');
+            }
+        } catch(e) {
+            log(`✗ 失敗：${item.title} — ${e.message}`, 'err');
+            summaryResults[i] = { item, summary: e.message, isError: true };
+            showSummaryInCard(i, e.message, true);
         }
-        const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } = window.docx;
 
-        const { keyword, now, rows } = buildReportData(items, summaries);
-
-        const children = [
-            new Paragraph({
-                text: '檔案摘要報告',
-                heading: HeadingLevel.TITLE,
-                alignment: AlignmentType.CENTER,
-            }),
-            new Paragraph({
-                children: [
-                    new TextRun({ text: `搜尋關鍵字：${keyword}　　產生時間：${now}`, color: '666666', size: 20 })
-                ],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 400 }
-            }),
-        ];
-
-        rows.forEach((row, idx) => {
-            children.push(
-                new Paragraph({
-                    children: [
-                        new TextRun({ text: `${idx + 1}. ${row.title}`, bold: true, size: 26, color: '1e1e35' })
-                    ],
-                    spacing: { before: 300, after: 80 },
-                    heading: HeadingLevel.HEADING_2
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun({ text: `類型：${row.type}　　來源：${row.source}　　修改日期：${row.date}`, color: '888888', size: 18 })
-                    ],
-                    spacing: { after: 120 }
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun({ text: '【AI 摘要】　', bold: true, color: '5b4cf5', size: 20 }),
-                        new TextRun({ text: row.summary, size: 20 })
-                    ],
-                    spacing: { after: 100 }
-                }),
-                new Paragraph({
-                    children: [
-                        new TextRun({ text: `🔗 ${row.url}`, color: '0369a1', size: 18 })
-                    ],
-                    spacing: { after: 200 }
-                })
-            );
-        });
-
-        const doc = new Document({ sections: [{ properties: {}, children }] });
-        const blob = await Packer.toBlob(doc);
-        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.docx`);
-        log('Word 下載成功', 'ok');
-    } catch(e) {
-        log('Word 下載失敗：' + e.message, 'err');
-        alert('Word 產生失敗：' + e.message);
-    } finally {
-        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 下載 Word (.docx)`;
-        btn.disabled = false;
+        if (i < total - 1) await new Promise(r => setTimeout(r, 800));
     }
 }
 
-// ── DOWNLOAD PDF
-async function downloadPdf(items, summaries) {
+// ── 下載按鈕區
+function showDownloadButtons(items, summaries) {
+    let wrap = document.getElementById('download-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'download-wrap';
+        document.getElementById('summary-progress-wrap').insertAdjacentElement('afterend', wrap);
+    }
+    wrap.style.cssText = 'background:#fff;border:1px solid #e4e4ef;border-radius:16px;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 12px rgba(15,15,26,.06);';
+    wrap.innerHTML = `
+        <div>
+            <p style="font-weight:700;font-size:0.95rem;color:#1e1e35;">📥 匯出摘要報告</p>
+            <p style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">共 ${items.length} 筆，含 PDF 頁面截圖</p>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button id="dl-html-btn" style="background:#059669;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                📄 下載 HTML 報告
+            </button>
+            <button id="dl-pdf-btn" style="background:#be123c;color:#fff;border:none;padding:10px 20px;border-radius:10px;font-family:'Sora',sans-serif;font-weight:600;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;">
+                🖨️ 預覽並存成 PDF
+            </button>
+        </div>`;
+    document.getElementById('dl-html-btn').onclick = () => downloadHtmlReport(items, summaries);
+    document.getElementById('dl-pdf-btn').onclick  = () => previewAndPrint(items, summaries);
+}
+
+// ── 產生報告 HTML 字串（共用）
+function buildReportHtml(items, summaries) {
+    const keyword = document.getElementById('keyword').value.trim();
+    const now     = new Date().toLocaleString('zh-TW');
+
+    let body = '';
+    items.forEach((item, i) => {
+        const sr       = summaries[i] || {};
+        const fileType = getFileType(item);
+        const meta     = TYPE_META[fileType] || TYPE_META.other;
+        const date     = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
+        const url      = item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '') : (item.webUrl || '');
+        const summaryText = sr.isError ? `（處理失敗：${sr.summary}）` : (sr.summary || '（尚未摘要）');
+        const hasPdfPages = !sr.isError && sr.pdfPages && sr.pdfPages.length > 0;
+
+        let pagesSect = '';
+        if (hasPdfPages) {
+            pagesSect = `<div class="pages-grid">`;
+            sr.pdfPages.forEach(pg => {
+                pagesSect += `
+                <div class="page-card">
+                    <div class="page-num">第 ${pg.pageNum} / ${pg.totalPages} 頁</div>
+                    <img src="${pg.dataUrl}" class="page-img" alt="第${pg.pageNum}頁截圖">
+                    <div class="page-desc">${pg.description.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>
+                </div>`;
+            });
+            pagesSect += `</div>`;
+        } else {
+            // 非 PDF：顯示純文字摘要
+            pagesSect = `<div class="summary-text">${summaryText.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+        }
+
+        body += `
+        <div class="item">
+            <div class="item-header">
+                <div>
+                    <span class="badge badge-${fileType}">${meta.label}</span>
+                    <span class="item-title">${item.title || '無標題'}</span>
+                </div>
+                <div class="item-meta">${item._source === 'onedrive' ? '☁️ OneDrive' : '📒 OneNote'} &nbsp;·&nbsp; 修改：${date}</div>
+            </div>
+            ${url ? `<a class="item-url" href="${url}" target="_blank">🔗 開啟原始檔案</a>` : ''}
+            <div class="section-label">✨ AI ${hasPdfPages ? '逐頁分析' : '摘要'}</div>
+            ${pagesSect}
+        </div>`;
+    });
+
+    return `<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>摘要報告 — ${keyword}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Microsoft JhengHei','PingFang TC','Noto Sans TC',sans-serif; background:#f5f5f8; color:#1e1e35; }
+  .report-header { background: linear-gradient(135deg,#5b4cf5,#7c3aed); color:#fff; padding:40px 48px 32px; }
+  .report-header h1 { font-size:26px; font-weight:700; margin-bottom:8px; }
+  .report-header .meta { font-size:13px; opacity:.85; }
+  .report-body { max-width:900px; margin:32px auto; padding:0 24px 60px; display:flex; flex-direction:column; gap:24px; }
+  .item { background:#fff; border:1px solid #e4e4ef; border-radius:16px; overflow:hidden; break-inside:avoid; }
+  .item-header { padding:18px 20px 10px; border-bottom:1px solid #f1f1f8; }
+  .item-title { font-size:16px; font-weight:700; margin-left:8px; }
+  .item-meta { font-size:12px; color:#94a3b8; margin-top:6px; }
+  .item-url { display:inline-block; font-size:12px; color:#5b4cf5; padding:4px 20px 10px; text-decoration:none; }
+  .item-url:hover { text-decoration:underline; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:700; }
+  .badge-onenote { background:#ede9ff; color:#5b4cf5; }
+  .badge-word    { background:#e0f2fe; color:#0369a1; }
+  .badge-excel   { background:#d1fae5; color:#065f46; }
+  .badge-ppt     { background:#fef3c7; color:#92400e; }
+  .badge-pdf     { background:#ffe4e6; color:#9f1239; }
+  .badge-other   { background:#f1f5f9; color:#475569; }
+  .section-label { font-size:11px; font-weight:700; color:#7c3aed; text-transform:uppercase; letter-spacing:.08em; padding:12px 20px 8px; }
+  .summary-text { margin:0 20px 18px; font-size:13px; line-height:1.75; color:#374151; background:#faf5ff; border-left:3px solid #7c3aed; padding:10px 14px; border-radius:0 8px 8px 0; }
+  .pages-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; padding:0 20px 20px; }
+  .page-card { border:1px solid #e4e4ef; border-radius:12px; overflow:hidden; }
+  .page-num { background:#5b4cf5; color:#fff; font-size:11px; font-weight:700; padding:5px 12px; }
+  .page-img { width:100%; display:block; }
+  .page-desc { padding:10px 12px; font-size:12px; line-height:1.65; color:#374151; background:#fafafa; }
+  @media print {
+    body { background:#fff; }
+    .item { break-inside:avoid; box-shadow:none; }
+    .pages-grid { grid-template-columns:repeat(2,1fr); }
+    a { color:#5b4cf5 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="report-header">
+    <h1>📄 檔案摘要報告</h1>
+    <div class="meta">搜尋關鍵字：${keyword} &nbsp;·&nbsp; 產生時間：${now} &nbsp;·&nbsp; 共 ${items.length} 筆</div>
+</div>
+<div class="report-body">${body}</div>
+</body></html>`;
+}
+
+// ── 下載 HTML 報告
+async function downloadHtmlReport(items, summaries) {
+    const btn = document.getElementById('dl-html-btn');
+    btn.textContent = '⏳ 產生中...'; btn.disabled = true;
+    try {
+        const keyword = document.getElementById('keyword').value.trim();
+        const html = buildReportHtml(items, summaries);
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.html`);
+        log('HTML 報告下載成功', 'ok');
+    } catch(e) {
+        log('HTML 報告失敗：' + e.message, 'err');
+        alert('HTML 報告產生失敗：' + e.message);
+    } finally {
+        btn.innerHTML = '📄 下載 HTML 報告'; btn.disabled = false;
+    }
+}
+
+// ── 預覽並存成 PDF（開新視窗列印）
+async function previewAndPrint(items, summaries) {
     const btn = document.getElementById('dl-pdf-btn');
     btn.textContent = '⏳ 產生中...'; btn.disabled = true;
     try {
-        if (!window.jspdf) {
-            await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-        }
-        // jsPDF 不支援中文，用 HTML → 列印方式產生 PDF
-        const { keyword, now, rows } = buildReportData(items, summaries);
-
-        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-  body { font-family: 'Microsoft JhengHei','PingFang TC',sans-serif; margin:40px; color:#1e1e35; font-size:13px; line-height:1.7; }
-  h1 { font-size:22px; text-align:center; margin-bottom:4px; }
-  .meta { text-align:center; color:#888; font-size:11px; margin-bottom:32px; }
-  .item { border:1px solid #e4e4ef; border-radius:10px; padding:16px 20px; margin-bottom:16px; break-inside:avoid; }
-  .item-title { font-size:15px; font-weight:700; margin-bottom:6px; }
-  .item-info { font-size:11px; color:#888; margin-bottom:8px; }
-  .item-summary-label { font-size:11px; font-weight:700; color:#5b4cf5; margin-bottom:4px; }
-  .item-summary { font-size:12px; color:#374151; background:#faf5ff; border-left:3px solid #7c3aed; padding:8px 12px; border-radius:0 6px 6px 0; }
-  .item-url { font-size:10px; color:#0369a1; margin-top:8px; word-break:break-all; }
-  .idx { display:inline-block; background:#5b4cf5; color:#fff; border-radius:4px; padding:1px 7px; font-size:11px; margin-right:6px; }
-</style></head><body>
-<h1>📄 檔案摘要報告</h1>
-<div class="meta">搜尋關鍵字：${keyword}　　產生時間：${now}　　共 ${rows.length} 筆</div>`;
-
-        rows.forEach((row, idx) => {
-            html += `<div class="item">
-  <div class="item-title"><span class="idx">${idx+1}</span>${row.title}</div>
-  <div class="item-info">${row.type} &nbsp;·&nbsp; ${row.source} &nbsp;·&nbsp; 修改：${row.date}</div>
-  <div class="item-summary-label">★ AI 摘要</div>
-  <div class="item-summary">${row.summary.replace(/</g,'&lt;')}</div>
-  ${row.url ? `<div class="item-url">🔗 ${row.url}</div>` : ''}
-</div>`;
-        });
-        html += '</body></html>';
-
-        // 用隱藏 iframe 列印成 PDF
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:794px;height:1123px;';
-        document.body.appendChild(iframe);
-        iframe.contentDocument.open();
-        iframe.contentDocument.write(html);
-        iframe.contentDocument.close();
-        await new Promise(r => setTimeout(r, 800));
-
-        // Blob via data URI for download
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        triggerDownload(blob, `摘要報告_${keyword}_${formatDate()}.html`);
-        document.body.removeChild(iframe);
-
-        // 也另開視窗讓使用者可以用瀏覽器直接存 PDF
+        const html = buildReportHtml(items, summaries);
         const win = window.open('', '_blank');
+        if (!win) { alert('彈出視窗被封鎖，請允許此網站的彈出視窗後再試。'); return; }
         win.document.write(html);
         win.document.close();
         win.focus();
-        setTimeout(() => { try { win.print(); } catch{} }, 600);
-
-        log('PDF（列印頁）已開啟', 'ok');
+        // 等圖片載入後再列印
+        setTimeout(() => { try { win.print(); } catch(e) {} }, 1200);
+        log('報告預覽已開啟，請在新視窗選「儲存為 PDF」', 'ok');
     } catch(e) {
-        log('PDF 失敗：' + e.message, 'err');
-        alert('PDF 產生失敗：' + e.message);
+        log('PDF 預覽失敗：' + e.message, 'err');
+        alert('PDF 預覽失敗：' + e.message);
     } finally {
-        btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 下載 PDF`;
-        btn.disabled = false;
+        btn.innerHTML = '🖨️ 預覽並存成 PDF'; btn.disabled = false;
     }
 }
 
 // ── HELPERS
 function loadScript(src) {
     return new Promise((res, rej) => {
+        if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
         const s = document.createElement('script');
         s.src = src; s.onload = res; s.onerror = () => rej(new Error('載入失敗：' + src));
         document.head.appendChild(s);
@@ -987,22 +1117,3 @@ function formatDate() {
 }
 
 // ── UI HELPERS
-function setStatus(msg) {
-    document.getElementById('status-bar').classList.remove('hidden');
-    document.getElementById('status-text').textContent = msg;
-    document.getElementById('error-bar').classList.add('hidden');
-}
-function hideStatus() { document.getElementById('status-bar').classList.add('hidden'); }
-function showError(msg, hint = '') {
-    hideStatus();
-    document.getElementById('error-bar').classList.remove('hidden');
-    document.getElementById('error-text').textContent = msg;
-    document.getElementById('error-hint').textContent = hint;
-    log(`錯誤：${msg}`, 'err');
-}
-function escapeHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-</script>
-</body>
-</html>
