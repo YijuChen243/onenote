@@ -688,13 +688,15 @@ async function fetchImgAsBase64(url, msToken) {
         log('圖片回應: ' + r.status + ' ' + (r.headers.get('content-type')||''), r.ok ? 'ok' : 'warn');
         if (!r.ok) return null;
         const blob = await r.blob();
-        if (!blob.type.startsWith('image/')) {
-            log('非圖片類型：' + blob.type, 'warn');
-            return null;
-        }
+        // OneNote 圖片回傳 application/octet-stream，強制當 image/png 處理
+        const mimeType = blob.type.startsWith('image/') ? blob.type : 'image/png';
         return new Promise(res => {
             const reader = new FileReader();
-            reader.onload = () => res({ dataUrl: reader.result, b64: reader.result.split(',')[1], mimeType: blob.type });
+            reader.onload = () => {
+                // 把 data URL 的 MIME 換成正確的 image/png
+                const dataUrl = reader.result.replace(/^data:[^;]+/, 'data:' + mimeType);
+                res({ dataUrl, b64: dataUrl.split(',')[1], mimeType });
+            };
             reader.onerror = () => res(null);
             reader.readAsDataURL(blob);
         });
