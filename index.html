@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OneNote & OneDrive Explorer v5</title>
+    <title>OneNote & OneDrive Explorer v5.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -24,214 +24,61 @@
             --emerald:  #10b981;
             --border:   #e4e4ef;
         }
-
         * { box-sizing: border-box; }
+        body { font-family: 'Sora', sans-serif; background: var(--surface); color: var(--ink); min-height: 100vh; }
 
-        body {
-            font-family: 'Sora', sans-serif;
-            background: var(--surface);
-            color: var(--ink);
-            min-height: 100vh;
-        }
+        /* NAVBAR */
+        .navbar { background: var(--ink); border-bottom: 1px solid var(--ink-3); position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; color: #fff; }
+        .version-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; background: var(--accent); color: #fff; padding: 2px 7px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
 
-        /* ── NAVBAR ── */
-        .navbar {
-            background: var(--ink);
-            border-bottom: 1px solid var(--ink-3);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .navbar-brand {
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-            color: #fff;
-        }
-        .version-badge {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.65rem;
-            background: var(--accent);
-            color: #fff;
-            padding: 2px 7px;
-            border-radius: 99px;
-            margin-left: 8px;
-            vertical-align: middle;
-        }
+        /* SEARCH */
+        .search-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 28px 32px; box-shadow: 0 2px 16px rgba(15,15,26,.06); }
+        .search-input { width: 100%; padding: 12px 18px; border: 1.5px solid var(--border); border-radius: 12px; font-family: 'Sora', sans-serif; font-size: 0.95rem; color: var(--ink); outline: none; transition: border-color .2s, box-shadow .2s; background: var(--surface); }
+        .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--glow); background: #fff; }
 
-        /* ── SEARCH CARD ── */
-        .search-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 28px 32px;
-            box-shadow: 0 2px 16px rgba(15,15,26,.06);
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 12px 18px;
-            border: 1.5px solid var(--border);
-            border-radius: 12px;
-            font-family: 'Sora', sans-serif;
-            font-size: 0.95rem;
-            color: var(--ink);
-            outline: none;
-            transition: border-color .2s, box-shadow .2s;
-            background: var(--surface);
-        }
-        .search-input:focus {
-            border-color: var(--accent);
-            box-shadow: 0 0 0 4px var(--glow);
-            background: #fff;
-        }
-
-        .btn-search {
-            background: var(--accent);
-            color: #fff;
-            border: none;
-            padding: 12px 28px;
-            border-radius: 12px;
-            font-family: 'Sora', sans-serif;
-            font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background .15s, transform .1s, box-shadow .15s;
-            box-shadow: 0 4px 14px rgba(91,76,245,.3);
-            white-space: nowrap;
-        }
+        .btn-search { background: var(--accent); color: #fff; border: none; padding: 12px 28px; border-radius: 12px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background .15s, transform .1s, box-shadow .15s; box-shadow: 0 4px 14px rgba(91,76,245,.3); white-space: nowrap; }
         .btn-search:hover { background: #4338e0; box-shadow: 0 6px 20px rgba(91,76,245,.4); transform: translateY(-1px); }
         .btn-search:active { transform: translateY(0); }
         .btn-search:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
-        /* ── LOGIN BTN ── */
-        .btn-login {
-            background: transparent;
-            border: 1.5px solid rgba(255,255,255,.35);
-            color: #fff;
-            padding: 8px 20px;
-            border-radius: 10px;
-            font-family: 'Sora', sans-serif;
-            font-weight: 500;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: background .15s, border-color .15s;
-        }
-        .btn-login:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.6); }
+        /* AI SUMMARY BUTTON */
+        .btn-ai { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; border: none; padding: 11px 24px; border-radius: 12px; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all .15s; box-shadow: 0 4px 14px rgba(124,58,237,.35); white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+        .btn-ai:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,58,237,.45); }
+        .btn-ai:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 
-        .btn-logout {
-            background: var(--rose);
-            color: #fff;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 8px;
-            font-family: 'Sora', sans-serif;
-            font-size: 0.78rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background .15s;
-        }
+        /* LOGIN */
+        .btn-login { background: transparent; border: 1.5px solid rgba(255,255,255,.35); color: #fff; padding: 8px 20px; border-radius: 10px; font-family: 'Sora', sans-serif; font-weight: 500; font-size: 0.85rem; cursor: pointer; transition: background .15s, border-color .15s; }
+        .btn-login:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.6); }
+        .btn-logout { background: var(--rose); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-family: 'Sora', sans-serif; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: background .15s; }
         .btn-logout:hover { background: #e11d48; }
 
-        /* ── SOURCE TOGGLE ── */
-        .source-toggle {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .source-chip {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 14px;
-            border-radius: 99px;
-            border: 1.5px solid var(--border);
-            background: var(--surface);
-            font-size: 0.8rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all .15s;
-            user-select: none;
-            color: #666;
-        }
-        .source-chip.active {
-            border-color: var(--accent);
-            background: #ede9ff;
-            color: var(--accent);
-        }
+        /* SOURCE CHIPS */
+        .source-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+        .source-chip { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 99px; border: 1.5px solid var(--border); background: var(--surface); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all .15s; user-select: none; color: #666; }
+        .source-chip.active { border-color: var(--accent); background: #ede9ff; color: var(--accent); }
         .source-chip input { display: none; }
 
-        /* ── STATUS BAR ── */
-        .status-bar {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: #ede9ff;
-            border: 1px solid #c4b5fd;
-            border-radius: 14px;
-            padding: 14px 20px;
-        }
+        /* STATUS */
+        .status-bar { display: flex; align-items: center; gap: 12px; background: #ede9ff; border: 1px solid #c4b5fd; border-radius: 14px; padding: 14px 20px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner {
-            width: 18px; height: 18px;
-            border: 2px solid var(--accent);
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin .7s linear infinite;
-            flex-shrink: 0;
-        }
+        .spinner { width: 18px; height: 18px; border: 2px solid var(--accent); border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 
-        /* ── RESULTS GRID ── */
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
-        }
+        /* RESULTS GRID */
+        .results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 
-        /* ── RESULT CARD ── */
-        .result-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            cursor: pointer;
-            transition: transform .18s, box-shadow .18s, border-color .18s;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            position: relative;
-            overflow: hidden;
-        }
-        .result-card::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; bottom: 0;
-            width: 3px;
-            border-radius: 3px 0 0 3px;
-        }
+        /* RESULT CARD */
+        .result-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; cursor: pointer; transition: transform .18s, box-shadow .18s, border-color .18s; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; }
+        .result-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 3px 0 0 3px; }
         .result-card.type-onenote::before { background: var(--accent); }
         .result-card.type-word::before    { background: var(--sky); }
         .result-card.type-excel::before   { background: var(--emerald); }
         .result-card.type-ppt::before     { background: var(--amber); }
         .result-card.type-pdf::before     { background: var(--rose); }
         .result-card.type-other::before   { background: #94a3b8; }
+        .result-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px -8px rgba(15,15,26,.12); border-color: #c4b5fd; }
 
-        .result-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 32px -8px rgba(15,15,26,.12);
-            border-color: #c4b5fd;
-        }
-
-        .card-type-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 3px 10px;
-            border-radius: 99px;
-            font-size: 0.72rem;
-            font-weight: 600;
-            letter-spacing: .02em;
-        }
+        .card-type-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 0.72rem; font-weight: 600; letter-spacing: .02em; }
         .badge-onenote { background: #ede9ff; color: var(--accent); }
         .badge-word    { background: #e0f2fe; color: #0369a1; }
         .badge-excel   { background: #d1fae5; color: #065f46; }
@@ -239,125 +86,51 @@
         .badge-pdf     { background: #ffe4e6; color: #9f1239; }
         .badge-other   { background: #f1f5f9; color: #475569; }
 
-        .card-title {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: var(--ink);
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .card-meta {
-            font-size: 0.75rem;
-            color: #94a3b8;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .card-open {
-            font-size: 0.78rem;
-            color: var(--accent);
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            margin-top: auto;
-            padding-top: 10px;
-            border-top: 1px solid var(--border);
-        }
+        .card-title { font-weight: 600; font-size: 0.95rem; color: var(--ink); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .card-meta { font-size: 0.75rem; color: #94a3b8; display: flex; align-items: center; gap: 10px; }
+        .card-open { font-size: 0.78rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 4px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 
-        /* ── DEBUG ── */
-        #debug-log {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            max-height: 200px;
-            overflow-y: auto;
-            line-height: 1.6;
-        }
+        /* AI SUMMARY IN CARD */
+        .card-summary-area { margin-top: 2px; }
+        .summary-box { background: linear-gradient(135deg, #faf5ff, #f0f9ff); border: 1px solid #e9d5ff; border-radius: 10px; padding: 12px 14px; font-size: 0.8rem; color: #374151; line-height: 1.65; position: relative; }
+        .summary-box .summary-label { font-size: 0.68rem; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+        .summary-loading { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 0.8rem; color: #7c3aed; background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 10px; }
+        .summary-spinner { width: 14px; height: 14px; border: 2px solid #7c3aed; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+        .summary-err { font-size: 0.75rem; color: #dc2626; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 10px; padding: 8px 12px; }
+
+        /* DEBUG */
+        #debug-log { font-family: 'JetBrains Mono', monospace; font-size: 11px; max-height: 200px; overflow-y: auto; line-height: 1.6; }
         .log-ok   { color: #34d399; }
         .log-warn { color: #fbbf24; }
         .log-err  { color: #f87171; }
         .log-info { color: #94a3b8; }
 
-        /* ── RESULT STATS ── */
-        .stats-bar {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .stat-chip {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 12px;
-            border-radius: 99px;
-            font-size: 0.78rem;
-            font-weight: 500;
-            background: var(--card);
-            border: 1px solid var(--border);
-        }
+        /* STATS */
+        .stats-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+        .stat-chip { display: flex; align-items: center; gap: 5px; padding: 4px 12px; border-radius: 99px; font-size: 0.78rem; font-weight: 500; background: var(--card); border: 1px solid var(--border); }
 
-        /* ── EMPTY STATE ── */
-        .empty-state {
-            grid-column: 1/-1;
-            text-align: center;
-            padding: 80px 20px;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-        }
+        /* EMPTY */
+        .empty-state { grid-column: 1/-1; text-align: center; padding: 80px 20px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; }
 
-        /* ── SORT SELECT ── */
-        .sort-select {
-            padding: 6px 12px;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
-            font-family: 'Sora', sans-serif;
-            font-size: 0.8rem;
-            background: var(--card);
-            color: var(--ink);
-            outline: none;
-            cursor: pointer;
-        }
+        /* SORT */
+        .sort-select { padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Sora', sans-serif; font-size: 0.8rem; background: var(--card); color: var(--ink); outline: none; cursor: pointer; }
 
-        /* ── USER CHIP ── */
-        .user-chip {
-            background: rgba(255,255,255,.12);
-            border: 1px solid rgba(255,255,255,.2);
-            color: #fff;
-            padding: 5px 14px;
-            border-radius: 99px;
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
+        /* USER */
+        .user-chip { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 5px 14px; border-radius: 99px; font-size: 0.8rem; font-weight: 500; }
 
-        /* ── SETTINGS ── */
-        .settings-overlay {
-            position: fixed; inset: 0;
-            background: rgba(15,15,26,.6);
-            backdrop-filter: blur(4px);
-            z-index: 200;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 16px;
-        }
-        .settings-panel {
-            background: #fff;
-            border-radius: 20px;
-            padding: 28px;
-            max-width: 480px;
-            width: 100%;
-            box-shadow: 0 24px 64px rgba(15,15,26,.25);
-        }
+        /* SETTINGS MODAL */
+        .settings-overlay { position: fixed; inset: 0; background: rgba(15,15,26,.6); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .settings-panel { background: #fff; border-radius: 20px; padding: 28px; max-width: 500px; width: 100%; box-shadow: 0 24px 64px rgba(15,15,26,.25); max-height: 90vh; overflow-y: auto; }
+
+        /* SUMMARY PROGRESS BAR */
+        #summary-progress-wrap { background: #f3e8ff; border: 1px solid #d8b4fe; border-radius: 14px; padding: 16px 20px; }
+        .progress-bar-track { background: #e9d5ff; border-radius: 99px; height: 6px; overflow: hidden; margin-top: 10px; }
+        .progress-bar-fill { background: linear-gradient(90deg, #7c3aed, #a855f7); height: 100%; border-radius: 99px; transition: width .3s ease; }
     </style>
 </head>
 <body>
 
-<!-- ══════════════ NAVBAR ══════════════ -->
+<!-- NAVBAR -->
 <nav class="navbar px-5 py-3">
     <div class="max-w-6xl mx-auto flex justify-between items-center gap-4">
         <div class="flex items-center gap-2">
@@ -367,15 +140,11 @@
                 <circle cx="21" cy="20" r="4" fill="#f59e0b"/>
                 <path d="M19.5 20h3M21 18.5v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            <span class="navbar-brand">
-                Explorer
-                <span class="version-badge">v5.0</span>
-            </span>
+            <span class="navbar-brand">Explorer<span class="version-badge">v5.1</span></span>
         </div>
-
         <div class="flex items-center gap-3">
-            <button id="debug-toggle" class="btn-login text-xs" style="padding:6px 12px;">📋 日誌</button>
-            <button id="settings-open" class="btn-login text-xs" style="padding:6px 12px;">⚙️ 設定</button>
+            <button id="debug-toggle" class="btn-login" style="padding:6px 12px;font-size:0.75rem;">📋 日誌</button>
+            <button id="settings-open" class="btn-login" style="padding:6px 12px;font-size:0.75rem;">⚙️ 設定</button>
             <button id="login-btn" class="btn-login">🔐 登入 Microsoft</button>
             <div id="user-info" class="hidden items-center gap-2">
                 <span id="username" class="user-chip"></span>
@@ -385,8 +154,8 @@
     </div>
 </nav>
 
-<!-- ══════════════ DEBUG PANEL ══════════════ -->
-<div id="debug-panel" class="hidden" style="background:#0f0f1a; border-bottom:1px solid #1e1e35;">
+<!-- DEBUG PANEL -->
+<div id="debug-panel" class="hidden" style="background:#0f0f1a;border-bottom:1px solid #1e1e35;">
     <div class="max-w-6xl mx-auto px-5 py-3">
         <div class="flex justify-between items-center mb-2">
             <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6b7280;letter-spacing:.08em;">CONSOLE OUTPUT</span>
@@ -396,32 +165,40 @@
     </div>
 </div>
 
-<!-- ══════════════ SETTINGS MODAL ══════════════ -->
+<!-- SETTINGS MODAL -->
 <div id="settings-overlay" class="settings-overlay hidden">
     <div class="settings-panel">
         <div class="flex justify-between items-center mb-5">
-            <h2 style="font-weight:700;font-size:1.1rem;">⚙️ Azure App 設定</h2>
+            <h2 style="font-weight:700;font-size:1.1rem;">⚙️ 設定</h2>
             <button id="settings-close" style="color:#94a3b8;font-size:1.2rem;cursor:pointer;background:none;border:none;">✕</button>
         </div>
-        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:0.82rem;color:#1e40af;">
-            <p style="font-weight:700;margin-bottom:8px;">📌 Azure Portal 必要設定</p>
+
+        <!-- Azure -->
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:16px;font-size:0.8rem;color:#1e40af;">
+            <p style="font-weight:700;margin-bottom:6px;">📌 Azure Portal 必要設定</p>
             <ol style="list-style:decimal;padding-left:18px;line-height:2;">
-                <li>應用程式註冊 → <strong>驗證</strong></li>
-                <li>重新導向 URI 加入：<br>
-                    <code id="show-redirect-uri" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;word-break:break-all;"></code></li>
+                <li>應用程式註冊 → <strong>驗證</strong> → 重新導向 URI：<br>
+                    <code id="show-redirect-uri" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.75rem;word-break:break-all;"></code></li>
                 <li>API 權限：<code>User.Read</code>、<code>Notes.Read</code>、<code>Files.Read</code></li>
                 <li>學校/公司帳號需「授與管理員同意」</li>
             </ol>
         </div>
-        <label style="display:block;font-size:0.75rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Application (Client) ID</label>
-        <input type="text" id="config-client-id"
-            style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Azure Application (Client) ID</label>
+        <input type="text" id="config-client-id" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:18px;" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+
+        <!-- AI Key -->
+        <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:14px;font-size:0.8rem;color:#166534;">
+            <p style="font-weight:700;margin-bottom:4px;">✨ AI 摘要（選填）</p>
+            <p>填入 Anthropic API Key 啟用批次 AI 摘要。Key 僅存在本機瀏覽器，不會傳送至任何第三方伺服器。</p>
+        </div>
+        <label style="display:block;font-size:0.73rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">Anthropic API Key</label>
+        <input type="password" id="config-anthropic-key" style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;" placeholder="sk-ant-api03-...">
+
         <button id="save-config" class="btn-search" style="width:100%;">💾 儲存並重新載入</button>
     </div>
 </div>
 
-<!-- ══════════════ MAIN ══════════════ -->
+<!-- MAIN -->
 <main class="max-w-6xl mx-auto py-8 px-4" style="display:flex;flex-direction:column;gap:20px;">
 
     <!-- SEARCH CARD -->
@@ -430,16 +207,13 @@
             <p style="font-size:0.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">搜尋來源</p>
             <div class="source-toggle">
                 <label class="source-chip active" id="chip-onenote">
-                    <input type="checkbox" id="src-onenote" checked>
-                    <span>📓</span> OneNote 筆記
+                    <input type="checkbox" id="src-onenote" checked><span>📓</span> OneNote 筆記
                 </label>
                 <label class="source-chip active" id="chip-onedrive">
-                    <input type="checkbox" id="src-onedrive" checked>
-                    <span>☁️</span> OneDrive 檔案
+                    <input type="checkbox" id="src-onedrive" checked><span>☁️</span> OneDrive 檔案
                 </label>
             </div>
         </div>
-
         <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;">
             <div>
                 <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">🔍 關鍵字</label>
@@ -449,11 +223,8 @@
                 <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">📅 起始日期（選填）</label>
                 <input type="date" id="start-date" class="search-input" style="width:auto;">
             </div>
-            <button type="button" id="search-btn" class="btn-search">
-                🔎 搜尋
-            </button>
+            <button type="button" id="search-btn" class="btn-search">🔎 搜尋</button>
         </div>
-
         <p style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">
             💡 同時搜尋 OneNote 筆記 + OneDrive 所有檔案（Word、PDF、Excel、PowerPoint 等），結果依修改時間排序。
         </p>
@@ -472,15 +243,33 @@
         <p id="error-hint" style="font-size:0.78rem;color:#fb7185;margin-top:6px;"></p>
     </div>
 
-    <!-- STATS + SORT -->
+    <!-- STATS + AI BTN + SORT -->
     <div id="stats-row" class="hidden" style="display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
         <div class="stats-bar" id="stats-chips"></div>
-        <select id="sort-select" class="sort-select">
-            <option value="date-desc">最新修改優先</option>
-            <option value="date-asc">最舊修改優先</option>
-            <option value="name-asc">名稱 A → Z</option>
-            <option value="name-desc">名稱 Z → A</option>
-        </select>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <button id="ai-summarize-btn" class="btn-ai hidden">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                ✨ AI 摘要全部
+            </button>
+            <select id="sort-select" class="sort-select">
+                <option value="date-desc">最新修改優先</option>
+                <option value="date-asc">最舊修改優先</option>
+                <option value="name-asc">名稱 A → Z</option>
+                <option value="name-desc">名稱 Z → A</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- AI PROGRESS -->
+    <div id="summary-progress-wrap" class="hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.85rem;font-weight:600;color:#7c3aed;">✨ AI 摘要進度</span>
+            <span id="summary-progress-text" style="font-size:0.8rem;color:#7c3aed;font-family:'JetBrains Mono',monospace;"></span>
+        </div>
+        <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="summary-progress-bar" style="width:0%"></div>
+        </div>
+        <p id="summary-progress-item" style="font-size:0.75rem;color:#9061f9;margin-top:8px;"></p>
     </div>
 
     <!-- RESULTS -->
@@ -494,7 +283,7 @@
 </main>
 
 <script>
-// ── DEBUG ─────────────────────────────────────────────────────
+// ── DEBUG
 const debugLog = document.getElementById('debug-log');
 function log(msg, type = 'info') {
     const el = document.createElement('div');
@@ -503,37 +292,37 @@ function log(msg, type = 'info') {
     debugLog.appendChild(el);
     debugLog.scrollTop = debugLog.scrollHeight;
 }
-document.getElementById('debug-toggle').onclick = () =>
-    document.getElementById('debug-panel').classList.toggle('hidden');
+document.getElementById('debug-toggle').onclick = () => document.getElementById('debug-panel').classList.toggle('hidden');
 document.getElementById('clear-log').onclick = () => debugLog.innerHTML = '';
 
-// ── SETTINGS ─────────────────────────────────────────────────
+// ── SETTINGS
 const DEFAULT_CLIENT_ID = 'adb3f3d3-a15a-43a5-9077-b95c30f654ff';
 let activeClientId = localStorage.getItem('onenote_client_id') || DEFAULT_CLIENT_ID;
+let anthropicKey   = localStorage.getItem('anthropic_api_key') || '';
+
 document.getElementById('config-client-id').value = activeClientId;
+document.getElementById('config-anthropic-key').value = anthropicKey;
 document.getElementById('show-redirect-uri').textContent = window.location.origin + window.location.pathname;
 
-document.getElementById('settings-open').onclick = () =>
-    document.getElementById('settings-overlay').classList.remove('hidden');
-document.getElementById('settings-close').onclick = () =>
-    document.getElementById('settings-overlay').classList.add('hidden');
+document.getElementById('settings-open').onclick = () => document.getElementById('settings-overlay').classList.remove('hidden');
+document.getElementById('settings-close').onclick = () => document.getElementById('settings-overlay').classList.add('hidden');
 document.getElementById('save-config').onclick = () => {
-    const val = document.getElementById('config-client-id').value.trim() || DEFAULT_CLIENT_ID;
-    localStorage.setItem('onenote_client_id', val);
+    const clientId = document.getElementById('config-client-id').value.trim() || DEFAULT_CLIENT_ID;
+    const apiKey   = document.getElementById('config-anthropic-key').value.trim();
+    localStorage.setItem('onenote_client_id', clientId);
+    if (apiKey) localStorage.setItem('anthropic_api_key', apiKey);
+    else localStorage.removeItem('anthropic_api_key');
     window.location.reload();
 };
 
-// ── SOURCE CHIPS ──────────────────────────────────────────────
+// ── SOURCE CHIPS
 ['onenote','onedrive'].forEach(id => {
     const chip = document.getElementById(`chip-${id}`);
     const cb   = document.getElementById(`src-${id}`);
-    chip.addEventListener('click', () => {
-        cb.checked = !cb.checked;
-        chip.classList.toggle('active', cb.checked);
-    });
+    chip.addEventListener('click', () => { cb.checked = !cb.checked; chip.classList.toggle('active', cb.checked); });
 });
 
-// ── MSAL ─────────────────────────────────────────────────────
+// ── MSAL
 let msalInstance = null;
 const loginRequest = { scopes: ['User.Read', 'Notes.Read', 'Files.Read'] };
 
@@ -541,73 +330,56 @@ function initMsal(clientId) {
     if (!clientId) return;
     try {
         msalInstance = new msal.PublicClientApplication({
-            auth: {
-                clientId,
-                authority: 'https://login.microsoftonline.com/common',
-                redirectUri: window.location.origin + window.location.pathname
-            },
+            auth: { clientId, authority: 'https://login.microsoftonline.com/common', redirectUri: window.location.origin + window.location.pathname },
             cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: true }
         });
         log('MSAL 初始化成功', 'ok');
         checkUser();
-    } catch (e) {
-        log('MSAL 初始化失敗: ' + e.message, 'err');
-    }
+    } catch(e) { log('MSAL 失敗: ' + e.message, 'err'); }
 }
 initMsal(activeClientId);
 
 function checkUser() {
     const accounts = msalInstance?.getAllAccounts() || [];
-    const loginBtn = document.getElementById('login-btn');
-    const userInfo = document.getElementById('user-info');
     if (accounts.length > 0) {
-        loginBtn.classList.add('hidden');
-        userInfo.style.display = 'flex';
+        document.getElementById('login-btn').classList.add('hidden');
+        document.getElementById('user-info').style.display = 'flex';
         document.getElementById('username').textContent = `👤 ${accounts[0].name || accounts[0].username}`;
         log(`已登入：${accounts[0].username}`, 'ok');
     } else {
-        loginBtn.classList.remove('hidden');
-        userInfo.style.display = 'none';
+        document.getElementById('login-btn').classList.remove('hidden');
+        document.getElementById('user-info').style.display = 'none';
     }
 }
 
 document.getElementById('login-btn').addEventListener('click', async () => {
     if (!msalInstance) return alert('請先在設定中填入 Client ID！');
-    try {
-        await msalInstance.loginPopup(loginRequest);
-        checkUser();
-    } catch (e) {
-        log('登入失敗: ' + e.message, 'err');
-        alert('登入失敗：' + e.message);
-    }
+    try { await msalInstance.loginPopup(loginRequest); checkUser(); }
+    catch(e) { log('登入失敗: ' + e.message, 'err'); alert('登入失敗：' + e.message); }
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
     localStorage.clear(); sessionStorage.clear();
     if (msalInstance) {
         const acc = msalInstance.getAllAccounts();
-        if (acc.length > 0) {
-            try { await msalInstance.logoutPopup({ account: acc[0] }); return; } catch {}
-        }
+        if (acc.length > 0) { try { await msalInstance.logoutPopup({ account: acc[0] }); return; } catch{} }
     }
     window.location.reload();
 });
 
-// ── TOKEN ─────────────────────────────────────────────────────
+// ── TOKEN
 async function getToken() {
     const accounts = msalInstance.getAllAccounts();
     try {
         const r = await msalInstance.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
-        log('Token 靜默取得', 'ok');
-        return r.accessToken;
+        log('Token 靜默取得', 'ok'); return r.accessToken;
     } catch {
         const r = await msalInstance.acquireTokenPopup(loginRequest);
-        log('Token 彈出取得', 'ok');
-        return r.accessToken;
+        log('Token 彈出取得', 'ok'); return r.accessToken;
     }
 }
 
-// ── FILE TYPE HELPERS ─────────────────────────────────────────
+// ── FILE TYPE
 function getFileType(item) {
     if (item._source === 'onenote') return 'onenote';
     const name = (item.name || '').toLowerCase();
@@ -617,7 +389,6 @@ function getFileType(item) {
     if (name.endsWith('.pdf')) return 'pdf';
     return 'other';
 }
-
 const TYPE_META = {
     onenote: { label: '📓 OneNote', badgeClass: 'badge-onenote', icon: '📓' },
     word:    { label: '📝 Word',    badgeClass: 'badge-word',    icon: '📝' },
@@ -627,21 +398,21 @@ const TYPE_META = {
     other:   { label: '📁 檔案',    badgeClass: 'badge-other',   icon: '📁' },
 };
 
-// ── SEARCH: OneNote ───────────────────────────────────────────
+// ── SEARCH: OneNote
 async function searchOneNote(token, keyword) {
     log('搜尋 OneNote...', 'info');
     const url = `https://graph.microsoft.com/v1.0/me/onenote/pages?$search="${encodeURIComponent(keyword)}"&$select=id,title,lastModifiedDateTime,links&$top=50`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-
     if (res.ok) {
         const data = await res.json();
         const pages = (data.value || []).map(p => ({ ...p, _source: 'onenote' }));
         log(`OneNote $search：${pages.length} 筆`, 'ok');
-        return pages;
+        if (pages.length > 0) return pages;
+        log('$search 回傳 0，改用 fallback', 'warn');
+    } else {
+        log(`OneNote $search 失敗 (${res.status})，改 fallback`, 'warn');
     }
-
-    // fallback: 前端過濾
-    log(`OneNote $search 不支援 (${res.status})，改前端篩選`, 'warn');
+    // fallback
     let nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100`;
     let all = [], page = 0;
     while (nextLink && page < 2) {
@@ -649,95 +420,60 @@ async function searchOneNote(token, keyword) {
         if (!r2.ok) throw new Error(`OneNote API 錯誤 (${r2.status})`);
         const d = await r2.json();
         all = all.concat(d.value || []);
-        nextLink = d['@odata.nextLink'] || null;
-        page++;
+        nextLink = d['@odata.nextLink'] || null; page++;
     }
     const kw = keyword.toLowerCase();
     const filtered = all.filter(p => p.title?.toLowerCase().includes(kw)).map(p => ({ ...p, _source: 'onenote' }));
-    log(`OneNote 前端篩選：${filtered.length}／${all.length} 筆`, 'ok');
+    log(`OneNote fallback：${filtered.length}／${all.length} 筆`, 'ok');
     return filtered;
 }
 
-// ── SEARCH: OneDrive ─────────────────────────────────────────
+// ── SEARCH: OneDrive
 async function searchOneDrive(token, keyword) {
-    log('搜尋 OneDrive（方法1：search API）...', 'info');
-
-    // 方法1：search API（商業帳號有效，部分個人帳號也支援）
-    const searchUrl = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=100&$orderby=lastModifiedDateTime desc`;
+    log('搜尋 OneDrive（search API）...', 'info');
+    const searchUrl = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=100`;
     const res = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
-
     if (res.ok) {
         const data = await res.json();
-        log(`OneDrive search API 原始回傳：${(data.value||[]).length} 筆（含資料夾）`, 'info');
-        const files = (data.value || [])
-            .filter(i => i.file)
-            .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-        log(`OneDrive search API 找到 ${files.length} 個檔案`, 'ok');
-
-        // 如果找到就直接回傳
+        const files = (data.value || []).filter(i => i.file).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+        log(`OneDrive search API：${files.length} 個檔案`, 'ok');
         if (files.length > 0) return files;
-        // 若結果為 0，也許是個人帳號 search 不支援中文，改用 fallback
-        log('search API 回傳 0 筆，改用 fallback（列舉所有檔案 → 前端篩選）...', 'warn');
+        log('search API 回傳 0，改 fallback', 'warn');
     } else {
         const errText = await res.text();
-        log(`OneDrive search API 失敗 (${res.status})，改用 fallback。錯誤：${errText.substring(0,120)}`, 'warn');
+        log(`OneDrive search 失敗 (${res.status})，改 fallback。${errText.substring(0,80)}`, 'warn');
     }
-
-    // 方法2 fallback：列舉所有檔案，前端做關鍵字篩選（個人帳號相容）
     return await searchOneDriveFallback(token, keyword);
 }
 
 async function searchOneDriveFallback(token, keyword) {
-    log('OneDrive fallback：遞迴列舉檔案中...', 'info');
+    log('OneDrive fallback：列舉檔案...', 'info');
     const kw = keyword.toLowerCase();
     let allFiles = [];
-
-    // 先抓根目錄最多 200 筆
     const listUrl = `https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,lastModifiedDateTime,webUrl,file,folder,size&$top=200`;
     const res = await fetch(listUrl, { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) {
-        const errText = await res.text();
-        log(`OneDrive 列舉失敗 (${res.status}): ${errText.substring(0,120)}`, 'err');
-        throw new Error(`OneDrive 無法存取 (${res.status})。請確認 Files.Read 權限已授與。`);
-    }
+    if (!res.ok) { const t = await res.text(); throw new Error(`OneDrive 無法存取 (${res.status})。請確認 Files.Read 權限已授與。`); }
     const data = await res.json();
     const items = data.value || [];
-    log(`根目錄共 ${items.length} 個項目`, 'info');
-
-    // 篩選檔案（排除資料夾），關鍵字比對檔名
-    const rootFiles = items
-        .filter(i => i.file && i.name.toLowerCase().includes(kw))
-        .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-
-    allFiles = allFiles.concat(rootFiles);
-
-    // 對子資料夾進行一層搜尋
+    log(`根目錄 ${items.length} 個項目`, 'info');
+    allFiles = items.filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
     const folders = items.filter(i => i.folder);
-    log(`有 ${folders.length} 個子資料夾，逐一搜尋...`, 'info');
-
     for (const folder of folders) {
         try {
-            const fUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=200`;
-            const fr = await fetch(fUrl, { headers: { Authorization: `Bearer ${token}` } });
+            const fr = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=200`, { headers: { Authorization: `Bearer ${token}` } });
             if (!fr.ok) continue;
             const fd = await fr.json();
-            const matched = (fd.value || [])
-                .filter(i => i.file && i.name.toLowerCase().includes(kw))
-                .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-            if (matched.length > 0) log(`資料夾「${folder.name}」找到 ${matched.length} 筆`, 'ok');
+            const matched = (fd.value || []).filter(i => i.file && i.name.toLowerCase().includes(kw)).map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+            if (matched.length) log(`資料夾「${folder.name}」：${matched.length} 筆`, 'ok');
             allFiles = allFiles.concat(matched);
-        } catch (e) {
-            log(`資料夾「${folder.name}」搜尋失敗：${e.message}`, 'warn');
-        }
+        } catch {}
     }
-
-    log(`OneDrive fallback 共找到 ${allFiles.length} 個符合檔案`, 'ok');
+    log(`OneDrive fallback 共 ${allFiles.length} 筆`, 'ok');
     return allFiles;
 }
 
-// ── SORT ─────────────────────────────────────────────────────
+// ── SORT
 let allResults = [];
-
 function sortResults(items, mode) {
     const arr = [...items];
     if (mode === 'date-desc') arr.sort((a,b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));
@@ -746,37 +482,27 @@ function sortResults(items, mode) {
     else if (mode === 'name-desc') arr.sort((a,b) => (b.title||'').localeCompare(a.title||''));
     return arr;
 }
-
-document.getElementById('sort-select').addEventListener('change', (e) => {
+document.getElementById('sort-select').addEventListener('change', e => {
     if (allResults.length) renderResults(sortResults(allResults, e.target.value));
 });
 
-// ── RENDER ────────────────────────────────────────────────────
+// ── RENDER
 function renderResults(items) {
     const grid = document.getElementById('results-grid');
     grid.innerHTML = '';
-
     if (items.length === 0) {
-        grid.innerHTML = `<div class="empty-state">
-            <div style="font-size:3rem;margin-bottom:12px;">🔍</div>
-            <h3 style="font-weight:700;font-size:1.05rem;color:#334155;">找不到相關結果</h3>
-            <p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">請嘗試其他關鍵字</p>
-        </div>`;
+        grid.innerHTML = `<div class="empty-state"><div style="font-size:3rem;margin-bottom:12px;">🔍</div><h3 style="font-weight:700;font-size:1.05rem;color:#334155;">找不到相關結果</h3><p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">請嘗試其他關鍵字</p></div>`;
         return;
     }
-
-    items.forEach(item => {
-        const type    = getFileType(item);
-        const meta    = TYPE_META[type];
-        const date    = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
-        const url     = item._source === 'onenote'
-                        ? (item.links?.oneNoteWebUrl?.href || '#')
-                        : (item.webUrl || '#');
-        const size    = item.size ? `${(item.size/1024).toFixed(0)} KB` : '';
-
+    items.forEach((item, idx) => {
+        const type = getFileType(item);
+        const meta = TYPE_META[type];
+        const date = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
+        const url  = item._source === 'onenote' ? (item.links?.oneNoteWebUrl?.href || '#') : (item.webUrl || '#');
+        const size = item.size ? `${(item.size/1024).toFixed(0)} KB` : '';
         const card = document.createElement('div');
         card.className = `result-card type-${type}`;
-        card.onclick = () => window.open(url, '_blank');
+        card.dataset.idx = idx;
         card.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <span class="card-type-badge ${meta.badgeClass}">${meta.label}</span>
@@ -784,16 +510,16 @@ function renderResults(items) {
             </div>
             <p class="card-title">${escapeHtml(item.title || '無標題')}</p>
             <div class="card-meta">
-                ${item._source === 'onedrive' ? `<span>☁️ OneDrive</span>` : `<span>📒 OneNote</span>`}
+                ${item._source === 'onedrive' ? '<span>☁️ OneDrive</span>' : '<span>📒 OneNote</span>'}
                 ${size ? `<span>·</span><span>${size}</span>` : ''}
             </div>
-            <div class="card-open">
+            <div class="card-summary-area" id="summary-${idx}"></div>
+            <div class="card-open" onclick="event.stopPropagation();window.open('${escapeHtml(url)}','_blank')">
                 <span>開啟${item._source === 'onenote' ? '筆記' : '檔案'}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             </div>`;
+        // card click = open
+        card.addEventListener('click', () => window.open(url, '_blank'));
         grid.appendChild(card);
     });
 }
@@ -801,43 +527,43 @@ function renderResults(items) {
 function renderStats(items) {
     const counts = { onenote:0, word:0, excel:0, ppt:0, pdf:0, other:0 };
     items.forEach(i => { const t = getFileType(i); counts[t] = (counts[t]||0)+1; });
-
     const statsRow = document.getElementById('stats-row');
     const chipsEl  = document.getElementById('stats-chips');
     chipsEl.innerHTML = `<span class="stat-chip" style="font-weight:600;">共 ${items.length} 筆</span>`;
     Object.entries(counts).forEach(([type, count]) => {
-        if (count === 0) return;
-        const m = TYPE_META[type];
-        chipsEl.innerHTML += `<span class="stat-chip">${m.icon} ${count}</span>`;
+        if (!count) return;
+        chipsEl.innerHTML += `<span class="stat-chip">${TYPE_META[type].icon} ${count}</span>`;
     });
     statsRow.style.display = 'flex';
     statsRow.classList.remove('hidden');
+
+    // Show AI button only if key exists
+    const aiBtn = document.getElementById('ai-summarize-btn');
+    if (anthropicKey && items.length > 0) aiBtn.classList.remove('hidden');
+    else aiBtn.classList.add('hidden');
 }
 
-// ── MAIN SEARCH ───────────────────────────────────────────────
+// ── MAIN SEARCH
 document.getElementById('search-btn').addEventListener('click', async () => {
     if (!msalInstance) return alert('請先在設定中填入 Client ID！');
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length === 0) return alert('請先登入 Microsoft 帳戶！');
-
+    if (!msalInstance.getAllAccounts().length) return alert('請先登入 Microsoft 帳戶！');
     const keyword   = document.getElementById('keyword').value.trim();
     const startDate = document.getElementById('start-date').value;
     const useNote   = document.getElementById('src-onenote').checked;
     const useDrive  = document.getElementById('src-onedrive').checked;
-
     if (!keyword) return alert('請輸入搜尋關鍵字！');
     if (!useNote && !useDrive) return alert('請至少選擇一個搜尋來源！');
 
     document.getElementById('results-grid').innerHTML = '';
     document.getElementById('stats-row').style.display = 'none';
     document.getElementById('error-bar').classList.add('hidden');
+    document.getElementById('summary-progress-wrap').classList.add('hidden');
     document.getElementById('search-btn').disabled = true;
     setStatus('取得存取權杖...');
 
     try {
         const token = await getToken();
         const tasks = [];
-
         if (useNote)  { setStatus('搜尋 OneNote 筆記...'); tasks.push(searchOneNote(token, keyword)); }
         if (useDrive) { setStatus('搜尋 OneDrive 檔案...'); tasks.push(searchOneDrive(token, keyword)); }
 
@@ -845,62 +571,191 @@ document.getElementById('search-btn').addEventListener('click', async () => {
         const results = await Promise.allSettled(tasks);
         let combined = [];
         const warnings = [];
-        results.forEach((r) => {
-            if (r.status === 'fulfilled') {
-                combined = combined.concat(r.value);
-            } else {
-                const msg = r.reason?.message || '未知錯誤';
-                log(`搜尋來源失敗：${msg}`, 'err');
-                warnings.push(msg);
-            }
+        results.forEach(r => {
+            if (r.status === 'fulfilled') combined = combined.concat(r.value);
+            else { const msg = r.reason?.message || '未知錯誤'; log(`來源失敗：${msg}`, 'err'); warnings.push(msg); }
         });
         if (warnings.length > 0) {
             const warnEl = document.getElementById('error-bar');
-            warnEl.classList.remove('hidden');
-            warnEl.style.background = '#fffbeb';
-            warnEl.style.borderColor = '#fcd34d';
-            document.getElementById('error-text').style.color = '#d97706';
+            warnEl.classList.remove('hidden'); warnEl.style.background='#fffbeb'; warnEl.style.borderColor='#fcd34d';
+            document.getElementById('error-text').style.color='#d97706';
             document.getElementById('error-text').textContent = '⚠️ 部分來源失敗：' + warnings.join('；');
-            const hint = warnings.some(w => w.includes('403') || w.includes('無法存取'))
-                ? '→ 請至 Azure Portal 確認 Files.Read 權限已授與，學校帳號需管理員同意。'
-                : warnings.some(w => w.includes('401')) ? '→ Token 已過期，請重新登入。' : '';
-            document.getElementById('error-hint').textContent = hint;
+            document.getElementById('error-hint').textContent = warnings.some(w=>w.includes('403')||w.includes('無法存取'))
+                ? '→ 請至 Azure Portal 確認 Files.Read 權限已授與。' : '';
         }
-
-        // 日期篩選
         if (startDate) {
             const ts = new Date(startDate).getTime();
             combined = combined.filter(i => new Date(i.lastModifiedDateTime).getTime() >= ts);
             log(`日期篩選後：${combined.length} 筆`, 'info');
         }
-
         allResults = combined;
         const sorted = sortResults(combined, document.getElementById('sort-select').value);
-        hideStatus();
-        renderStats(combined);
-        renderResults(sorted);
-
-    } catch (e) {
+        hideStatus(); renderStats(combined); renderResults(sorted);
+    } catch(e) {
         let hint = '';
         if (e.message.includes('403')) hint = '→ 權限未授與，請至 Azure Portal 確認 Notes.Read 與 Files.Read 已授與。';
         else if (e.message.includes('401')) hint = '→ Token 無效，請重新登入。';
         else if (e.message.includes('popup')) hint = '→ 彈出視窗被封鎖，請允許此網站的彈出視窗。';
         showError(e.message, hint);
-    } finally {
-        document.getElementById('search-btn').disabled = false;
-    }
+    } finally { document.getElementById('search-btn').disabled = false; }
 });
 
-// ── UI HELPERS ────────────────────────────────────────────────
+// ════════════════════════════════════════
+//  AI SUMMARY ENGINE
+// ════════════════════════════════════════
+
+// 取得檔案文字內容
+async function fetchItemContent(item, msToken) {
+    try {
+        if (item._source === 'onenote') {
+            // OneNote: 抓 HTML 內容
+            const r = await fetch(`https://graph.microsoft.com/v1.0/me/onenote/pages/${item.id}/content`, {
+                headers: { Authorization: `Bearer ${msToken}` }
+            });
+            if (!r.ok) return null;
+            const html = await r.text();
+            // 去掉 HTML tag，只留純文字
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            return tmp.innerText.substring(0, 6000);
+        } else {
+            // OneDrive: 抓下載串流（文字類型）
+            const type = getFileType(item);
+            if (type === 'pdf' || type === 'other') {
+                // PDF 無法直接讀文字，改用檔名+路徑做摘要
+                return null;
+            }
+            // Word/Excel/PPT 嘗試取得純文字（Graph 不直接支援，用 content 端點）
+            const r = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${item.id}/content`, {
+                headers: { Authorization: `Bearer ${msToken}` }
+            });
+            if (!r.ok) return null;
+            const blob = await r.blob();
+            // 只處理文字類型
+            if (blob.type.includes('text') || blob.type.includes('xml') || blob.type.includes('json')) {
+                return (await blob.text()).substring(0, 6000);
+            }
+            return null; // 二進位格式（docx/xlsx）無法直接讀
+        }
+    } catch { return null; }
+}
+
+// 呼叫 Claude API 產生摘要
+async function callClaudeForSummary(title, type, content) {
+    const typeLabel = TYPE_META[type]?.label || type;
+    let prompt;
+    if (content) {
+        prompt = `你是一個文件助理。請用繁體中文，用 3～5 句話簡潔摘要以下「${typeLabel}」文件的重點內容。\n\n文件標題：${title}\n\n文件內容（節錄）：\n${content}\n\n請直接輸出摘要，不要加前言。`;
+    } else {
+        prompt = `你是一個文件助理。根據以下「${typeLabel}」文件的標題，用繁體中文推測並寫出 1～2 句這份文件可能的用途或內容簡述。\n\n文件標題：${title}\n\n請直接輸出推測描述，不要加前言。`;
+    }
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: prompt }]
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API 錯誤 (${res.status})`);
+    }
+    const data = await res.json();
+    return data.content?.[0]?.text?.trim() || '（無法取得摘要）';
+}
+
+// 顯示單一摘要到卡片
+function showSummaryInCard(idx, html, isError = false) {
+    const area = document.getElementById(`summary-${idx}`);
+    if (!area) return;
+    if (isError) {
+        area.innerHTML = `<div class="summary-err">⚠️ ${escapeHtml(html)}</div>`;
+    } else {
+        area.innerHTML = `
+            <div class="summary-box">
+                <div class="summary-label">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    AI 摘要
+                </div>
+                <p>${escapeHtml(html)}</p>
+            </div>`;
+    }
+}
+
+function showLoadingInCard(idx, title) {
+    const area = document.getElementById(`summary-${idx}`);
+    if (!area) return;
+    area.innerHTML = `<div class="summary-loading"><div class="summary-spinner"></div><span>分析「${escapeHtml(title.substring(0,20))}」中...</span></div>`;
+}
+
+// 主要 AI 批次摘要
+document.getElementById('ai-summarize-btn').addEventListener('click', async () => {
+    if (!anthropicKey) {
+        alert('請先至 ⚙️ 設定 填入 Anthropic API Key！');
+        return;
+    }
+    if (!allResults.length) return;
+
+    const sorted = sortResults(allResults, document.getElementById('sort-select').value);
+    const btn = document.getElementById('ai-summarize-btn');
+    btn.disabled = true;
+    btn.innerHTML = `<div class="summary-spinner" style="width:14px;height:14px;border-color:#fff;border-top-color:transparent;"></div> 摘要中...`;
+
+    const progressWrap = document.getElementById('summary-progress-wrap');
+    const progressBar  = document.getElementById('summary-progress-bar');
+    const progressText = document.getElementById('summary-progress-text');
+    const progressItem = document.getElementById('summary-progress-item');
+    progressWrap.classList.remove('hidden');
+
+    let msToken;
+    try { msToken = await getToken(); } catch(e) { alert('Token 取得失敗，請重新登入'); btn.disabled = false; return; }
+
+    const total = sorted.length;
+    for (let i = 0; i < sorted.length; i++) {
+        const item = sorted[i];
+        const pct  = Math.round((i / total) * 100);
+        progressBar.style.width = pct + '%';
+        progressText.textContent = `${i+1} / ${total}`;
+        progressItem.textContent = `📄 正在處理：${item.title || '無標題'}`;
+        showLoadingInCard(i, item.title || '無標題');
+
+        try {
+            const content = await fetchItemContent(item, msToken);
+            const summary = await callClaudeForSummary(item.title || '無標題', getFileType(item), content);
+            showSummaryInCard(i, summary);
+            log(`✓ 摘要完成：${item.title}`, 'ok');
+        } catch(e) {
+            log(`✗ 摘要失敗：${item.title} — ${e.message}`, 'err');
+            showSummaryInCard(i, e.message, true);
+        }
+
+        // 避免 rate limit，每次間隔 800ms
+        if (i < sorted.length - 1) await new Promise(r => setTimeout(r, 800));
+    }
+
+    progressBar.style.width = '100%';
+    progressText.textContent = `完成！`;
+    progressItem.textContent = `✨ 所有 ${total} 個項目摘要完成`;
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> ✨ 重新摘要`;
+});
+
+// ── UI HELPERS
 function setStatus(msg) {
-    const bar = document.getElementById('status-bar');
-    bar.classList.remove('hidden');
+    document.getElementById('status-bar').classList.remove('hidden');
     document.getElementById('status-text').textContent = msg;
     document.getElementById('error-bar').classList.add('hidden');
 }
-function hideStatus() {
-    document.getElementById('status-bar').classList.add('hidden');
-}
+function hideStatus() { document.getElementById('status-bar').classList.add('hidden'); }
 function showError(msg, hint = '') {
     hideStatus();
     document.getElementById('error-bar').classList.remove('hidden');
@@ -909,7 +764,7 @@ function showError(msg, hint = '') {
     log(`錯誤：${msg}`, 'err');
 }
 function escapeHtml(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
