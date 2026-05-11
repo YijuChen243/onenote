@@ -19,7 +19,7 @@
         .btn-logout{background:var(--rose);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;}
         .user-chip{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;padding:5px 14px;border-radius:99px;font-size:.8rem;}
         .search-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 32px;box-shadow:0 2px 16px rgba(15,15,26,.06);}
-        .search-input{width:100%;padding:12px 18px;border:1.5px solid var(--border);border-radius:12px;font-family:'Sora',sans-serif;font-size:.95rem;color:var(--ink);outline:none;transition:.2s;background:var(--surface);}
+        .search-input{width:100%;padding:12px 18px;border:1.5px solid var(--border);border-radius:12px;font-family:'Sora',sans-serif;font-size:1rem;color:var(--ink);outline:none;transition:.2s;background:var(--surface);}
         .search-input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--glow);background:#fff;}
         .btn-search{background:var(--accent);color:#fff;border:none;padding:12px 28px;border-radius:12px;font-family:'Sora',sans-serif;font-weight:600;font-size:.95rem;cursor:pointer;box-shadow:0 4px 14px rgba(91,76,245,.3);white-space:nowrap;transition:.15s;}
         .btn-search:hover{background:#4338e0;}
@@ -50,13 +50,13 @@
         .badge-ppt{background:#fef3c7;color:#92400e;}
         .badge-pdf{background:#ffe4e6;color:#9f1239;}
         .badge-other{background:#f1f5f9;color:#475569;}
-        .card-title{font-weight:600;font-size:.95rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-        .card-meta{font-size:.75rem;color:#94a3b8;display:flex;align-items:center;gap:10px;}
-        .card-open{font-size:.78rem;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:4px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border);}
-        .summary-box{background:linear-gradient(135deg,#faf5ff,#f0f9ff);border:1px solid #e9d5ff;border-radius:10px;padding:12px 14px;font-size:.8rem;color:#374151;line-height:1.65;}
+        .card-title{font-weight:600;font-size:1.05rem;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .card-meta{font-size:.82rem;color:#94a3b8;display:flex;align-items:center;gap:10px;}
+        .card-open{font-size:.85rem;color:var(--accent);font-weight:600;display:flex;align-items:center;gap:4px;margin-top:auto;padding-top:10px;border-top:1px solid var(--border);}
+        .summary-box{background:linear-gradient(135deg,#faf5ff,#f0f9ff);border:1px solid #e9d5ff;border-radius:10px;padding:14px 16px;font-size:.92rem;color:#374151;line-height:1.75;}
         .summary-label{font-size:.68rem;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-        .summary-loading{display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:.8rem;color:#7c3aed;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;}
-        .summary-err{font-size:.75rem;color:#dc2626;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:8px 12px;}
+        .summary-loading{display:flex;align-items:center;gap:8px;padding:12px 16px;font-size:.9rem;color:#7c3aed;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;}
+        .summary-err{font-size:.85rem;color:#dc2626;background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:10px 14px;}
         .mini-spinner{width:14px;height:14px;border:2px solid #7c3aed;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
         .stat-chip{display:flex;align-items:center;gap:5px;padding:4px 12px;border-radius:99px;font-size:.78rem;font-weight:500;background:var(--card);border:1px solid var(--border);}
         .sort-select{padding:6px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:'Sora',sans-serif;font-size:.8rem;background:var(--card);color:var(--ink);outline:none;cursor:pointer;}
@@ -636,7 +636,7 @@ async function fetchOneNoteContent(item, msToken) {
     if (!r.ok) return { text: null, imgUrls: [] };
     const html = await r.text();
 
-    // 用 regex 從原始字串抓 img src — 不放進 DOM，避免瀏覽器自動發送無 token 請求
+    // regex 抓所有 img src，不放進 DOM
     const rawImgSrcs = [];
     const imgTagRe = /<img[^>]+>/gi;
     const srcRe = /(?:data-fullres-src|src)=["']([^"']+)["']/i;
@@ -645,22 +645,39 @@ async function fetchOneNoteContent(item, msToken) {
         const sm = srcRe.exec(m[0]);
         if (sm) {
             rawImgSrcs.push(sm[1]);
-            log('找到圖片: ' + sm[1].substring(sm[1].lastIndexOf('/resources/')), 'info');
+            log('圖片完整src: ' + sm[1], 'info'); // 印完整 URL 除錯
         }
     }
 
-    // 統一轉成 /me/onenote/resources/xxx/content 格式（移除 users email 部分）
+    // 轉成 /me/onenote/resources/ 格式
+    // Graph OneNote 資源 URL 有幾種格式：
+    // 1. https://graph.microsoft.com/v1.0/users('email')/onenote/resources/ID/content
+    // 2. https://graph.microsoft.com/v1.0/me/onenote/resources/ID/content
+    // 3. ../resources/ID/content (相對路徑)
     const imgUrls = rawImgSrcs.map(src => {
+        if (!src || src.startsWith('data:')) return null;
+        // 已含 /onenote/resources/ 的完整 URL → 換成 /me/
         const ri = src.indexOf('/onenote/resources/');
-        if (ri >= 0) return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + src.substring(ri + 19);
+        if (ri >= 0) {
+            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + src.substring(ri + 19);
+        }
+        // 相對路徑 ../resources/ID/content
+        const relMatch = src.match(/resources\/([^/]+(?:\/[^/]+)*)/);
+        if (relMatch) {
+            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + relMatch[1];
+        }
+        // 其他 https URL 直接用
+        if (src.startsWith('https://')) return src;
         return null;
     }).filter(Boolean);
 
     log('OneNote 圖片：' + rawImgSrcs.length + ' 個找到，' + imgUrls.length + ' 個可下載', imgUrls.length > 0 ? 'ok' : 'warn');
+    if (imgUrls.length > 0) log('第一個正規化URL: ' + imgUrls[0], 'info');
 
-    // 純文字：regex 去掉 HTML tag，不放進 DOM
+    // 純文字
     const text = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                      .replace(/<[^>]+>/g, ' ')
+                     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
                      .replace(/\s+/g, ' ').trim().substring(0, 6000);
     return { text, imgUrls };
 }
