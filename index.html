@@ -832,45 +832,50 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
 
     summaryResults = new Array(sorted.length);
     const total = sorted.length;
+    const BATCH = 3;   // 每批同時處理筆數
+    let done = 0;
 
-    for (let i = 0; i < total; i++) {
-        const item = sorted[i];
-        pBar.style.width = Math.round(i/total*100) + '%';
-        pText.textContent = (i+1) + ' / ' + total;
-        pItem.textContent = '📄 處理：' + (item.title || '無標題');
-        showLoadingInCard(i, item.title || '無標題');
+    // ── 處理單一項目（含快取）
+    async function processOne(item, i) {
+        // ④ 快取：key = id + lastModified
+        const cacheKey = 'sum_' + (item.id || item.title) + '_' + (item.lastModifiedDateTime || '');
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                const hit = JSON.parse(cached);
+                summaryResults[i] = hit;
+                if (hit.pdfPages && hit.pdfPages.length > 0) showSummaryInCard(i, hit.summary);
+                else if (hit.noteImgs && hit.noteImgs.length > 0) showNoteResultInCard(i, hit.summary, hit.noteImgs);
+                else showSummaryInCard(i, hit.summary, hit.isError);
+                log('💾 快取命中：' + item.title, 'ok');
+                return;
+            } catch {}
+        }
 
+        const type = getFileType(item);
         try {
-            const type = getFileType(item);
             if (type === 'pdf' && item._source === 'onedrive' && anthropicKey) {
-                pItem.textContent = '⬇️ 下載 PDF：' + item.title;
                 const res = await fetch('https://graph.microsoft.com/v1.0/me/drive/items/' + item.id + '/content', { headers: { Authorization: 'Bearer ' + msToken } });
                 if (!res.ok) throw new Error('PDF 下載失敗 (' + res.status + ')');
                 const blob = await res.blob();
                 const imgs = await pdfToImages(blob, pdfMaxPages);
                 const pages = [];
                 for (let pi = 0; pi < imgs.length; pi++) {
-                    pItem.textContent = '🤖 AI 分析第 ' + (pi+1) + '/' + imgs.length + ' 頁';
                     const desc = await analyzePageVision(imgs[pi].b64, imgs[pi].pageNum, imgs[pi].total, item.title);
                     pages.push({ ...imgs[pi], description: desc });
-                    if (pi < imgs.length-1) await sleep(600);
+                    if (pi < imgs.length-1) await sleep(400);
                 }
                 const summary = pages.map(p => '第' + p.pageNum + '頁：' + p.description).join('\n');
                 summaryResults[i] = { item, summary, isError:false, pdfPages: pages };
                 showSummaryInCard(i, summary);
             } else if (item._source === 'onenote' && anthropicKey) {
-                // OneNote：文字摘要 + 內嵌圖片 Vision 分析
-                pItem.textContent = '📥 讀取 OneNote：' + item.title;
                 const { text, imgUrls } = await fetchOneNoteContent(item, msToken);
                 const summary = await summarizeText(item.title || '無標題', type, text);
-
-                // 下載並分析圖片（最多 pdfMaxPages 張）
                 const noteImgs = [];
                 const imgLimit = Math.min(imgUrls.length, pdfMaxPages);
                 for (let pi = 0; pi < imgLimit; pi++) {
-                    pItem.textContent = '🖼️ 分析第 ' + (pi+1) + '/' + imgLimit + ' 張圖片';
                     const imgData = await fetchImgAsBase64(imgUrls[pi], msToken);
-                    if (!imgData) { log('圖片下載失敗：' + imgUrls[pi].substring(0,60), 'warn'); continue; }
+                    if (!imgData) continue;
                     const mime = imgData.mimeType && imgData.mimeType.startsWith('image/') ? imgData.mimeType : 'image/png';
                     try {
                         const desc = await callClaude([{ role:'user', content:[
@@ -879,12 +884,10 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
                         ]}], 300);
                         noteImgs.push({ dataUrl: imgData.dataUrl, description: desc, idx: pi+1 });
                     } catch(ve) {
-                        log('圖片分析失敗：' + ve.message, 'warn');
                         noteImgs.push({ dataUrl: imgData.dataUrl, description: '（分析失敗：' + ve.message + '）', idx: pi+1 });
                     }
-                    if (pi < imgLimit-1) await sleep(600);
+                    if (pi < imgLimit-1) await sleep(400);
                 }
-
                 summaryResults[i] = { item, summary, isError:false, noteImgs };
                 showNoteResultInCard(i, summary, noteImgs);
             } else {
@@ -894,12 +897,37 @@ document.getElementById('ai-summarize-btn').addEventListener('click', async () =
                 showSummaryInCard(i, summary);
             }
             log('✓ ' + item.title, 'ok');
+            // ④ 存快取（PDF/OneNote 圖片因含 base64 太大，只快取純文字結果）
+            const r = summaryResults[i];
+            if (r && !r.isError && !r.pdfPages && !r.noteImgs) {
+                try { localStorage.setItem(cacheKey, JSON.stringify(r)); } catch {}
+            }
         } catch(e) {
             log('✗ ' + item.title + '：' + e.message, 'err');
             summaryResults[i] = { item, summary: e.message, isError:true };
             showSummaryInCard(i, e.message, true);
         }
-        if (i < total-1) await sleep(800);
+    }
+
+    // ② 平行批次：BATCH 個一組，組間等 300ms
+    for (let start = 0; start < total; start += BATCH) {
+        const batchItems = sorted.slice(start, start + BATCH);
+        // 先把這批都顯示 loading
+        batchItems.forEach((item, bi) => {
+            const i = start + bi;
+            showLoadingInCard(i, item.title || '無標題');
+        });
+        pItem.textContent = '⚡ 同時處理 ' + batchItems.length + ' 筆（第 ' + (start+1) + '～' + Math.min(start+BATCH, total) + '）';
+
+        // 同時發送這批
+        await Promise.allSettled(batchItems.map((item, bi) => processOne(item, start + bi)));
+
+        done += batchItems.length;
+        pBar.style.width = Math.round(done/total*100) + '%';
+        pText.textContent = done + ' / ' + total;
+
+        // 組間等 300ms（避免 rate limit）
+        if (start + BATCH < total) await sleep(300);
     }
 
     pBar.style.width = '100%';
