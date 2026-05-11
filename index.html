@@ -650,29 +650,22 @@ async function fetchOneNoteContent(item, msToken) {
     }
 
     // 轉成 /me/onenote/resources/ 格式
-    // Graph OneNote 資源 URL 有幾種格式：
-    // 1. https://graph.microsoft.com/v1.0/users('email')/onenote/resources/ID/content
-    // 2. https://graph.microsoft.com/v1.0/me/onenote/resources/ID/content
-    // 3. ../resources/ID/content (相對路徑)
     const imgUrls = rawImgSrcs.map(src => {
         if (!src || src.startsWith('data:')) return null;
-        // 已含 /onenote/resources/ 的完整 URL → 換成 /me/
+        log('src長度:' + src.length + ' indexOf結果:' + src.indexOf('/onenote/resources/'), 'info');
+        log('src後50字:' + src.slice(-50), 'info');
         const ri = src.indexOf('/onenote/resources/');
         if (ri >= 0) {
-            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + src.substring(ri + 19);
+            const resourcePart = src.substring(ri + 19);
+            log('resourcePart: ' + resourcePart, 'info');
+            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + resourcePart;
         }
-        // 相對路徑 ../resources/ID/content
-        const relMatch = src.match(/resources\/([^/]+(?:\/[^/]+)*)/);
-        if (relMatch) {
-            return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + relMatch[1];
-        }
-        // 其他 https URL 直接用
         if (src.startsWith('https://')) return src;
         return null;
     }).filter(Boolean);
 
     log('OneNote 圖片：' + rawImgSrcs.length + ' 個找到，' + imgUrls.length + ' 個可下載', imgUrls.length > 0 ? 'ok' : 'warn');
-    if (imgUrls.length > 0) log('第一個正規化URL: ' + imgUrls[0], 'info');
+    if (imgUrls.length > 0) log('正規化URL後50字: ' + imgUrls[0].slice(-50), 'info');
 
     // 純文字
     const text = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
