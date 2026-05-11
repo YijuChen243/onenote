@@ -670,13 +670,29 @@ async function fetchOneNoteContent(item, msToken) {
 // 下載圖片並轉 base64（需帶 token）
 async function fetchImgAsBase64(url, msToken) {
     try {
-        // 統一把 /users('xxx')/onenote 換成 /me/onenote，避免 400
-        const normalizedUrl = url.replace(/\/users\('[^']*'\)\/onenote/, '/me/onenote')
-                                  .replace(/\/users\("[^"]*"\)\/onenote/, '/me/onenote');
-        log('下載圖片：' + normalizedUrl.substring(0, 90), 'info');
+        // users('email')/onenote → me/onenote
+        let normalizedUrl = url;
+        const userMatch = url.indexOf("/onenote/resources/");
+        if (userMatch > 0) {
+            normalizedUrl = 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + url.substring(userMatch + 19);
+        }
+        log('下載圖片：' + normalizedUrl, 'info');
         const r = await fetch(normalizedUrl, { headers: { Authorization: 'Bearer ' + msToken } });
         log('圖片回應：' + r.status + ' ' + (r.headers.get('content-type')||''), r.ok ? 'ok' : 'warn');
-        if (!r.ok) return null;
+        if (!r.ok) {
+            log('400 錯誤，嘗試原始 URL', 'warn');
+            const r2 = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
+            log('原始 URL 回應：' + r2.status, r2.ok ? 'ok' : 'warn');
+            if (!r2.ok) return null;
+            const blob2 = await r2.blob();
+            if (!blob2.type.startsWith('image/')) return null;
+            return new Promise(res => {
+                const reader = new FileReader();
+                reader.onload = () => res({ dataUrl: reader.result, b64: reader.result.split(',')[1], mimeType: blob2.type });
+                reader.onerror = () => res(null);
+                reader.readAsDataURL(blob2);
+            });
+        }
         const blob = await r.blob();
         if (!blob.type.startsWith('image/')) {
             log('非圖片類型：' + blob.type, 'warn');
