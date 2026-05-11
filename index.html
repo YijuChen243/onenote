@@ -3,243 +3,546 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OneNote 筆記查詢系統 v4</title>
+    <title>OneNote & OneDrive Explorer v5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="text/javascript" src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Noto Sans TC', sans-serif; background: #f0f0f5; }
-
-        /* ── 主色 ── */
         :root {
-            --purple: #6B21A8;
-            --purple-dark: #4C1D95;
-            --purple-light: #EDE9FE;
+            --ink:      #0f0f1a;
+            --ink-2:    #1e1e35;
+            --ink-3:    #2d2d4e;
+            --surface:  #f5f5f8;
+            --card:     #ffffff;
+            --accent:   #5b4cf5;
+            --accent-2: #8b5cf6;
+            --glow:     rgba(91,76,245,0.18);
+            --amber:    #f59e0b;
+            --teal:     #14b8a6;
+            --rose:     #f43f5e;
+            --sky:      #0ea5e9;
+            --emerald:  #10b981;
+            --border:   #e4e4ef;
         }
 
-        /* ── Navbar ── */
-        .navbar { background: linear-gradient(135deg, var(--purple-dark), var(--purple)); }
+        * { box-sizing: border-box; }
 
-        /* ── 卡片 ── */
-        .note-card {
-            transition: transform .18s, box-shadow .18s;
-            cursor: pointer;
-            border-left: 4px solid var(--purple);
-        }
-        .note-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 24px -6px rgba(107,33,168,.18);
+        body {
+            font-family: 'Sora', sans-serif;
+            background: var(--surface);
+            color: var(--ink);
+            min-height: 100vh;
         }
 
-        /* ── 按鈕 ── */
-        .btn-primary {
-            background: var(--purple);
+        /* ── NAVBAR ── */
+        .navbar {
+            background: var(--ink);
+            border-bottom: 1px solid var(--ink-3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .navbar-brand {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
             color: #fff;
+        }
+        .version-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            background: var(--accent);
+            color: #fff;
+            padding: 2px 7px;
+            border-radius: 99px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* ── SEARCH CARD ── */
+        .search-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 32px;
+            box-shadow: 0 2px 16px rgba(15,15,26,.06);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 18px;
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            font-family: 'Sora', sans-serif;
+            font-size: 0.95rem;
+            color: var(--ink);
+            outline: none;
+            transition: border-color .2s, box-shadow .2s;
+            background: var(--surface);
+        }
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px var(--glow);
+            background: #fff;
+        }
+
+        .btn-search {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-family: 'Sora', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: background .15s, transform .1s, box-shadow .15s;
+            box-shadow: 0 4px 14px rgba(91,76,245,.3);
+            white-space: nowrap;
+        }
+        .btn-search:hover { background: #4338e0; box-shadow: 0 6px 20px rgba(91,76,245,.4); transform: translateY(-1px); }
+        .btn-search:active { transform: translateY(0); }
+        .btn-search:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+        /* ── LOGIN BTN ── */
+        .btn-login {
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,.35);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 10px;
+            font-family: 'Sora', sans-serif;
+            font-weight: 500;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background .15s, border-color .15s;
+        }
+        .btn-login:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.6); }
+
+        .btn-logout {
+            background: var(--rose);
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: 'Sora', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
             transition: background .15s;
         }
-        .btn-primary:hover { background: var(--purple-dark); }
+        .btn-logout:hover { background: #e11d48; }
 
-        /* ── 載入動畫 ── */
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner { animation: spin .8s linear infinite; }
-
-        /* ── 除錯面板 ── */
-        #debug-log {
-            font-family: monospace;
-            font-size: 12px;
-            max-height: 180px;
-            overflow-y: auto;
+        /* ── SOURCE TOGGLE ── */
+        .source-toggle {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
-        .log-ok   { color: #16a34a; }
-        .log-warn { color: #d97706; }
-        .log-err  { color: #dc2626; }
-        .log-info { color: #6b7280; }
+        .source-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 99px;
+            border: 1.5px solid var(--border);
+            background: var(--surface);
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all .15s;
+            user-select: none;
+            color: #666;
+        }
+        .source-chip.active {
+            border-color: var(--accent);
+            background: #ede9ff;
+            color: var(--accent);
+        }
+        .source-chip input { display: none; }
+
+        /* ── STATUS BAR ── */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ede9ff;
+            border: 1px solid #c4b5fd;
+            border-radius: 14px;
+            padding: 14px 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid var(--accent);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            flex-shrink: 0;
+        }
+
+        /* ── RESULTS GRID ── */
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+
+        /* ── RESULT CARD ── */
+        .result-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform .18s, box-shadow .18s, border-color .18s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        .result-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            border-radius: 3px 0 0 3px;
+        }
+        .result-card.type-onenote::before { background: var(--accent); }
+        .result-card.type-word::before    { background: var(--sky); }
+        .result-card.type-excel::before   { background: var(--emerald); }
+        .result-card.type-ppt::before     { background: var(--amber); }
+        .result-card.type-pdf::before     { background: var(--rose); }
+        .result-card.type-other::before   { background: #94a3b8; }
+
+        .result-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px -8px rgba(15,15,26,.12);
+            border-color: #c4b5fd;
+        }
+
+        .card-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 99px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: .02em;
+        }
+        .badge-onenote { background: #ede9ff; color: var(--accent); }
+        .badge-word    { background: #e0f2fe; color: #0369a1; }
+        .badge-excel   { background: #d1fae5; color: #065f46; }
+        .badge-ppt     { background: #fef3c7; color: #92400e; }
+        .badge-pdf     { background: #ffe4e6; color: #9f1239; }
+        .badge-other   { background: #f1f5f9; color: #475569; }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--ink);
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .card-meta {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-open {
+            font-size: 0.78rem;
+            color: var(--accent);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: auto;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── DEBUG ── */
+        #debug-log {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+        .log-ok   { color: #34d399; }
+        .log-warn { color: #fbbf24; }
+        .log-err  { color: #f87171; }
+        .log-info { color: #94a3b8; }
+
+        /* ── RESULT STATS ── */
+        .stats-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .stat-chip {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            background: var(--card);
+            border: 1px solid var(--border);
+        }
+
+        /* ── EMPTY STATE ── */
+        .empty-state {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 80px 20px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+        }
+
+        /* ── SORT SELECT ── */
+        .sort-select {
+            padding: 6px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            font-family: 'Sora', sans-serif;
+            font-size: 0.8rem;
+            background: var(--card);
+            color: var(--ink);
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* ── USER CHIP ── */
+        .user-chip {
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.2);
+            color: #fff;
+            padding: 5px 14px;
+            border-radius: 99px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        /* ── SETTINGS ── */
+        .settings-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,15,26,.6);
+            backdrop-filter: blur(4px);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+        .settings-panel {
+            background: #fff;
+            border-radius: 20px;
+            padding: 28px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 24px 64px rgba(15,15,26,.25);
+        }
     </style>
 </head>
-<body class="min-h-screen">
+<body>
 
 <!-- ══════════════ NAVBAR ══════════════ -->
-<nav class="navbar text-white px-6 py-4 shadow-lg">
-    <div class="max-w-6xl mx-auto flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M2 6h4l2 3-2 3h-4z"/><rect x="6" y="3" width="16" height="18" rx="2"/>
-                <line x1="10" y1="8" x2="18" y2="8"/><line x1="10" y1="12" x2="18" y2="12"/>
-                <line x1="10" y1="16" x2="14" y2="16"/>
+<nav class="navbar px-5 py-3">
+    <div class="max-w-6xl mx-auto flex justify-between items-center gap-4">
+        <div class="flex items-center gap-2">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                <rect width="28" height="28" rx="8" fill="#5b4cf5"/>
+                <path d="M7 8h14M7 14h10M7 20h7" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="21" cy="20" r="4" fill="#f59e0b"/>
+                <path d="M19.5 20h3M21 18.5v3" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
             </svg>
-            <span class="text-xl font-bold tracking-wider">OneNote Explorer
-                <span class="text-xs opacity-50 ml-1">v4.0</span>
+            <span class="navbar-brand">
+                Explorer
+                <span class="version-badge">v5.0</span>
             </span>
         </div>
-        <div class="flex items-center gap-3">
 
-            <!-- 除錯按鈕 -->
-            <button id="debug-toggle" title="顯示除錯日誌"
-                class="p-2 rounded-full hover:bg-white/20 transition text-sm">
-                🔍 日誌
-            </button>
-            <!-- 登入區 -->
-            <button id="login-btn"
-                class="bg-white text-purple-800 px-4 py-2 rounded-lg font-semibold hover:bg-purple-50 transition shadow flex items-center gap-2">
-                🔐 登入 Microsoft
-            </button>
-            <div id="user-info" class="hidden items-center gap-3">
-                <span id="username" class="text-sm font-medium bg-white/20 px-3 py-1 rounded-full"></span>
-                <button id="logout-btn"
-                    class="bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-bold hover:bg-red-600 transition">
-                    登出/重設
-                </button>
+        <div class="flex items-center gap-3">
+            <button id="debug-toggle" class="btn-login text-xs" style="padding:6px 12px;">📋 日誌</button>
+            <button id="settings-open" class="btn-login text-xs" style="padding:6px 12px;">⚙️ 設定</button>
+            <button id="login-btn" class="btn-login">🔐 登入 Microsoft</button>
+            <div id="user-info" class="hidden items-center gap-2">
+                <span id="username" class="user-chip"></span>
+                <button id="logout-btn" class="btn-logout">登出</button>
             </div>
         </div>
     </div>
 </nav>
 
-<!-- ══════════════ 除錯日誌面板 ══════════════ -->
-<div id="debug-panel" class="hidden bg-gray-900 text-gray-300 px-6 py-3">
-    <div class="max-w-6xl mx-auto">
+<!-- ══════════════ DEBUG PANEL ══════════════ -->
+<div id="debug-panel" class="hidden" style="background:#0f0f1a; border-bottom:1px solid #1e1e35;">
+    <div class="max-w-6xl mx-auto px-5 py-3">
         <div class="flex justify-between items-center mb-2">
-            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">📋 除錯日誌</span>
-            <button id="clear-log" class="text-xs text-gray-500 hover:text-gray-300">清除</button>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#6b7280;letter-spacing:.08em;">CONSOLE OUTPUT</span>
+            <button id="clear-log" style="font-size:11px;color:#4b5563;cursor:pointer;">清除</button>
         </div>
         <div id="debug-log"></div>
     </div>
 </div>
 
-<!-- ══════════════ 設定面板 ══════════════ -->
-<div id="settings-panel" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+<!-- ══════════════ SETTINGS MODAL ══════════════ -->
+<div id="settings-overlay" class="settings-overlay hidden">
+    <div class="settings-panel">
         <div class="flex justify-between items-center mb-5">
-            <h2 class="text-xl font-bold text-gray-800">⚙️ Azure App 設定</h2>
-            <button id="settings-close" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+            <h2 style="font-weight:700;font-size:1.1rem;">⚙️ Azure App 設定</h2>
+            <button id="settings-close" style="color:#94a3b8;font-size:1.2rem;cursor:pointer;background:none;border:none;">✕</button>
         </div>
-
-        <!-- 說明區 -->
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 text-sm text-blue-800">
-            <p class="font-bold mb-2">📌 Azure Portal 必要設定</p>
-            <ol class="list-decimal list-inside space-y-1">
-                <li>進入 <strong>Azure Portal → 應用程式註冊</strong></li>
-                <li>選擇您的 App → <strong>驗證</strong></li>
-                <li>在「重新導向 URI」加入：<br>
-                    <code class="bg-blue-100 px-1 rounded" id="show-redirect-uri"></code>
-                </li>
-                <li><strong>API 權限</strong> 必須含：<code>User.Read</code>、<code>Notes.Read</code></li>
-                <li>點「授與管理員同意」（若為學校/公司帳戶）</li>
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:20px;font-size:0.82rem;color:#1e40af;">
+            <p style="font-weight:700;margin-bottom:8px;">📌 Azure Portal 必要設定</p>
+            <ol style="list-style:decimal;padding-left:18px;line-height:2;">
+                <li>應用程式註冊 → <strong>驗證</strong></li>
+                <li>重新導向 URI 加入：<br>
+                    <code id="show-redirect-uri" style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:0.78rem;word-break:break-all;"></code></li>
+                <li>API 權限：<code>User.Read</code>、<code>Notes.Read</code>、<code>Files.Read</code></li>
+                <li>學校/公司帳號需「授與管理員同意」</li>
             </ol>
         </div>
-
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
-                    Application (Client) ID
-                </label>
-                <input type="text" id="config-client-id"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none font-mono text-sm"
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
-            </div>
-            <button id="save-config"
-                class="w-full btn-primary py-2.5 rounded-lg font-bold">
-                💾 儲存並重新載入
-            </button>
-        </div>
+        <label style="display:block;font-size:0.75rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Application (Client) ID</label>
+        <input type="text" id="config-client-id"
+            style="width:100%;padding:10px 14px;border:1.5px solid #e4e4ef;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;outline:none;margin-bottom:14px;"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <button id="save-config" class="btn-search" style="width:100%;">💾 儲存並重新載入</button>
     </div>
 </div>
 
-<!-- ══════════════ 主內容 ══════════════ -->
-<main class="max-w-6xl mx-auto py-8 px-4">
+<!-- ══════════════ MAIN ══════════════ -->
+<main class="max-w-6xl mx-auto py-8 px-4" style="display:flex;flex-direction:column;gap:20px;">
 
-    <!-- 搜尋列 -->
-    <div class="bg-white rounded-2xl shadow-md p-6 mb-6 border border-gray-100">
-        <form id="search-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-1">🔍 關鍵字</label>
-                <input type="text" id="keyword" placeholder="搜尋筆記標題..."
-                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+    <!-- SEARCH CARD -->
+    <div class="search-card">
+        <div style="margin-bottom:16px;">
+            <p style="font-size:0.78rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">搜尋來源</p>
+            <div class="source-toggle">
+                <label class="source-chip active" id="chip-onenote">
+                    <input type="checkbox" id="src-onenote" checked>
+                    <span>📓</span> OneNote 筆記
+                </label>
+                <label class="source-chip active" id="chip-onedrive">
+                    <input type="checkbox" id="src-onedrive" checked>
+                    <span>☁️</span> OneDrive 檔案
+                </label>
+            </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;">
+            <div>
+                <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">🔍 關鍵字</label>
+                <input type="text" id="keyword" class="search-input" placeholder="輸入檔案名稱或關鍵字...">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">📅 起始日期（選填）</label>
-                <input type="date" id="start-date"
-                    class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+                <label style="display:block;font-size:0.8rem;font-weight:500;color:#64748b;margin-bottom:6px;">📅 起始日期（選填）</label>
+                <input type="date" id="start-date" class="search-input" style="width:auto;">
             </div>
-            <div>
-                <button type="submit" id="search-btn"
-                    class="w-full btn-primary py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-md">
-                    🔎 搜尋筆記
-                </button>
-            </div>
-        </form>
+            <button type="button" id="search-btn" class="btn-search">
+                🔎 搜尋
+            </button>
+        </div>
 
-        <!-- 搜尋模式說明 -->
-        <p class="text-xs text-gray-400 mt-3">
-            💡 搜尋模式：先嘗試 Graph API 全文搜尋，若不支援則改為「抓取最多 200 筆，依標題篩選」。
+        <p style="font-size:0.75rem;color:#94a3b8;margin-top:12px;">
+            💡 同時搜尋 OneNote 筆記 + OneDrive 所有檔案（Word、PDF、Excel、PowerPoint 等），結果依修改時間排序。
         </p>
     </div>
 
-    <!-- 狀態列 -->
-    <div id="status-bar" class="hidden bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6 flex items-center gap-3">
-        <div class="spinner w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full"></div>
-        <span id="status-text" class="text-purple-700 text-sm font-medium">載入中...</span>
+    <!-- STATUS -->
+    <div id="status-bar" class="status-bar hidden">
+        <div class="spinner"></div>
+        <span id="status-text" style="font-size:0.88rem;color:#5b4cf5;font-weight:500;">載入中...</span>
     </div>
 
-    <!-- 錯誤訊息 -->
-    <div id="error-bar" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-        <p class="font-bold text-red-700 mb-1">❌ 發生錯誤</p>
-        <p id="error-text" class="text-red-600 text-sm"></p>
-        <p id="error-hint" class="text-red-500 text-xs mt-2"></p>
+    <!-- ERROR -->
+    <div id="error-bar" class="hidden" style="background:#fff1f2;border:1px solid #fecdd3;border-radius:14px;padding:16px 20px;">
+        <p style="font-weight:700;color:#be123c;margin-bottom:4px;">❌ 發生錯誤</p>
+        <p id="error-text" style="font-size:0.85rem;color:#e11d48;"></p>
+        <p id="error-hint" style="font-size:0.78rem;color:#fb7185;margin-top:6px;"></p>
     </div>
 
-    <!-- 結果數量 -->
-    <div id="result-count" class="hidden text-sm text-gray-500 mb-4"></div>
+    <!-- STATS + SORT -->
+    <div id="stats-row" class="hidden" style="display:none;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div class="stats-bar" id="stats-chips"></div>
+        <select id="sort-select" class="sort-select">
+            <option value="date-desc">最新修改優先</option>
+            <option value="date-asc">最舊修改優先</option>
+            <option value="name-asc">名稱 A → Z</option>
+            <option value="name-desc">名稱 Z → A</option>
+        </select>
+    </div>
 
-    <!-- 結果格 -->
-    <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        <div id="placeholder-msg" class="col-span-full text-center py-20 bg-white rounded-2xl border border-gray-200">
-            <div class="text-5xl mb-4">📓</div>
-            <h3 class="text-lg font-bold text-gray-700">準備好了！</h3>
-            <p class="text-gray-400 mt-2 text-sm">登入後輸入關鍵字，即可搜尋您的 OneNote 筆記</p>
+    <!-- RESULTS -->
+    <div class="results-grid" id="results-grid">
+        <div class="empty-state">
+            <div style="font-size:3rem;margin-bottom:12px;">🔭</div>
+            <h3 style="font-weight:700;font-size:1.05rem;color:#334155;">準備好了！</h3>
+            <p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">登入後輸入關鍵字，即可同時搜尋 OneNote 和 OneDrive</p>
         </div>
     </div>
 </main>
 
-<!-- ══════════════ SCRIPT ══════════════ -->
 <script>
-// ── 工具：除錯日誌 ──────────────────────────────────────────
+// ── DEBUG ─────────────────────────────────────────────────────
 const debugLog = document.getElementById('debug-log');
 function log(msg, type = 'info') {
-    const line = document.createElement('div');
-    line.className = `log-${type}`;
-    line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    debugLog.appendChild(line);
+    const el = document.createElement('div');
+    el.className = `log-${type}`;
+    el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    debugLog.appendChild(el);
     debugLog.scrollTop = debugLog.scrollHeight;
-    console.log(`[${type.toUpperCase()}] ${msg}`);
 }
-
-document.getElementById('debug-toggle').onclick = () => {
+document.getElementById('debug-toggle').onclick = () =>
     document.getElementById('debug-panel').classList.toggle('hidden');
-};
 document.getElementById('clear-log').onclick = () => debugLog.innerHTML = '';
 
-// ── MSAL 初始化 ────────────────────────────────────────────
-// Client ID 已內建，使用者不需要自行設定
+// ── SETTINGS ─────────────────────────────────────────────────
 const DEFAULT_CLIENT_ID = 'adb3f3d3-a15a-43a5-9077-b95c30f654ff';
 let activeClientId = localStorage.getItem('onenote_client_id') || DEFAULT_CLIENT_ID;
-const configInput = document.getElementById('config-client-id');
-configInput.value = activeClientId;
+document.getElementById('config-client-id').value = activeClientId;
 document.getElementById('show-redirect-uri').textContent = window.location.origin + window.location.pathname;
 
-log(`目前頁面 origin: ${window.location.origin}`, 'info');
-log(`目前 Client ID: ${activeClientId || '(未設定)'}`, activeClientId ? 'info' : 'warn');
+document.getElementById('settings-open').onclick = () =>
+    document.getElementById('settings-overlay').classList.remove('hidden');
+document.getElementById('settings-close').onclick = () =>
+    document.getElementById('settings-overlay').classList.add('hidden');
+document.getElementById('save-config').onclick = () => {
+    const val = document.getElementById('config-client-id').value.trim() || DEFAULT_CLIENT_ID;
+    localStorage.setItem('onenote_client_id', val);
+    window.location.reload();
+};
 
+// ── SOURCE CHIPS ──────────────────────────────────────────────
+['onenote','onedrive'].forEach(id => {
+    const chip = document.getElementById(`chip-${id}`);
+    const cb   = document.getElementById(`src-${id}`);
+    chip.addEventListener('click', () => {
+        cb.checked = !cb.checked;
+        chip.classList.toggle('active', cb.checked);
+    });
+});
+
+// ── MSAL ─────────────────────────────────────────────────────
 let msalInstance = null;
+const loginRequest = { scopes: ['User.Read', 'Notes.Read', 'Files.Read'] };
 
 function initMsal(clientId) {
-    if (!clientId) {
-        log('Client ID 為空，跳過 MSAL 初始化', 'warn');
-        return;
-    }
+    if (!clientId) return;
     try {
         msalInstance = new msal.PublicClientApplication({
             auth: {
-                clientId: clientId,
+                clientId,
                 authority: 'https://login.microsoftonline.com/common',
                 redirectUri: window.location.origin + window.location.pathname
             },
@@ -251,81 +554,272 @@ function initMsal(clientId) {
         log('MSAL 初始化失敗: ' + e.message, 'err');
     }
 }
-
 initMsal(activeClientId);
 
-// ── 登入狀態 ────────────────────────────────────────────────
-const loginRequest = { scopes: ['User.Read', 'Notes.Read'] };
-
 function checkUser() {
-    if (!msalInstance) return;
-    const accounts = msalInstance.getAllAccounts();
+    const accounts = msalInstance?.getAllAccounts() || [];
+    const loginBtn = document.getElementById('login-btn');
+    const userInfo = document.getElementById('user-info');
     if (accounts.length > 0) {
-        document.getElementById('login-btn').classList.add('hidden');
-        const ui = document.getElementById('user-info');
-        ui.classList.remove('hidden');
-        ui.classList.add('flex');
+        loginBtn.classList.add('hidden');
+        userInfo.style.display = 'flex';
         document.getElementById('username').textContent = `👤 ${accounts[0].name || accounts[0].username}`;
-        log(`已登入帳戶：${accounts[0].username}`, 'ok');
+        log(`已登入：${accounts[0].username}`, 'ok');
+    } else {
+        loginBtn.classList.remove('hidden');
+        userInfo.style.display = 'none';
     }
 }
 
 document.getElementById('login-btn').addEventListener('click', async () => {
     if (!msalInstance) return alert('請先在設定中填入 Client ID！');
     try {
-        log('開始登入...', 'info');
         await msalInstance.loginPopup(loginRequest);
-        log('登入成功', 'ok');
         checkUser();
-    } catch (err) {
-        log('登入失敗: ' + err.message, 'err');
-        alert('登入失敗：' + err.message);
+    } catch (e) {
+        log('登入失敗: ' + e.message, 'err');
+        alert('登入失敗：' + e.message);
     }
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
-    if (!msalInstance) {
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.reload();
+    localStorage.clear(); sessionStorage.clear();
+    if (msalInstance) {
+        const acc = msalInstance.getAllAccounts();
+        if (acc.length > 0) {
+            try { await msalInstance.logoutPopup({ account: acc[0] }); return; } catch {}
+        }
+    }
+    window.location.reload();
+});
+
+// ── TOKEN ─────────────────────────────────────────────────────
+async function getToken() {
+    const accounts = msalInstance.getAllAccounts();
+    try {
+        const r = await msalInstance.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
+        log('Token 靜默取得', 'ok');
+        return r.accessToken;
+    } catch {
+        const r = await msalInstance.acquireTokenPopup(loginRequest);
+        log('Token 彈出取得', 'ok');
+        return r.accessToken;
+    }
+}
+
+// ── FILE TYPE HELPERS ─────────────────────────────────────────
+function getFileType(item) {
+    if (item._source === 'onenote') return 'onenote';
+    const name = (item.name || '').toLowerCase();
+    if (name.endsWith('.docx') || name.endsWith('.doc')) return 'word';
+    if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) return 'excel';
+    if (name.endsWith('.pptx') || name.endsWith('.ppt')) return 'ppt';
+    if (name.endsWith('.pdf')) return 'pdf';
+    return 'other';
+}
+
+const TYPE_META = {
+    onenote: { label: '📓 OneNote', badgeClass: 'badge-onenote', icon: '📓' },
+    word:    { label: '📝 Word',    badgeClass: 'badge-word',    icon: '📝' },
+    excel:   { label: '📊 Excel',   badgeClass: 'badge-excel',   icon: '📊' },
+    ppt:     { label: '📽 PPT',     badgeClass: 'badge-ppt',     icon: '📽' },
+    pdf:     { label: '📄 PDF',     badgeClass: 'badge-pdf',     icon: '📄' },
+    other:   { label: '📁 檔案',    badgeClass: 'badge-other',   icon: '📁' },
+};
+
+// ── SEARCH: OneNote ───────────────────────────────────────────
+async function searchOneNote(token, keyword) {
+    log('搜尋 OneNote...', 'info');
+    const url = `https://graph.microsoft.com/v1.0/me/onenote/pages?$search="${encodeURIComponent(keyword)}"&$select=id,title,lastModifiedDateTime,links&$top=50`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+
+    if (res.ok) {
+        const data = await res.json();
+        const pages = (data.value || []).map(p => ({ ...p, _source: 'onenote' }));
+        log(`OneNote $search：${pages.length} 筆`, 'ok');
+        return pages;
+    }
+
+    // fallback: 前端過濾
+    log(`OneNote $search 不支援 (${res.status})，改前端篩選`, 'warn');
+    let nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100`;
+    let all = [], page = 0;
+    while (nextLink && page < 2) {
+        const r2 = await fetch(nextLink, { headers: { Authorization: `Bearer ${token}` } });
+        if (!r2.ok) throw new Error(`OneNote API 錯誤 (${r2.status})`);
+        const d = await r2.json();
+        all = all.concat(d.value || []);
+        nextLink = d['@odata.nextLink'] || null;
+        page++;
+    }
+    const kw = keyword.toLowerCase();
+    const filtered = all.filter(p => p.title?.toLowerCase().includes(kw)).map(p => ({ ...p, _source: 'onenote' }));
+    log(`OneNote 前端篩選：${filtered.length}／${all.length} 筆`, 'ok');
+    return filtered;
+}
+
+// ── SEARCH: OneDrive ─────────────────────────────────────────
+async function searchOneDrive(token, keyword) {
+    log('搜尋 OneDrive...', 'info');
+    // Graph search API — 支援全文搜尋檔名
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=50`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) {
+        const err = await res.text();
+        log(`OneDrive 搜尋失敗 (${res.status}): ${err.substring(0,100)}`, 'err');
+        throw new Error(`OneDrive 搜尋失敗 (${res.status})`);
+    }
+    const data = await res.json();
+    // 只保留有 file 屬性的（排除資料夾）
+    const files = (data.value || [])
+        .filter(i => i.file)
+        .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+    log(`OneDrive 找到 ${files.length} 個檔案`, 'ok');
+    return files;
+}
+
+// ── SORT ─────────────────────────────────────────────────────
+let allResults = [];
+
+function sortResults(items, mode) {
+    const arr = [...items];
+    if (mode === 'date-desc') arr.sort((a,b) => new Date(b.lastModifiedDateTime) - new Date(a.lastModifiedDateTime));
+    else if (mode === 'date-asc') arr.sort((a,b) => new Date(a.lastModifiedDateTime) - new Date(b.lastModifiedDateTime));
+    else if (mode === 'name-asc') arr.sort((a,b) => (a.title||'').localeCompare(b.title||''));
+    else if (mode === 'name-desc') arr.sort((a,b) => (b.title||'').localeCompare(a.title||''));
+    return arr;
+}
+
+document.getElementById('sort-select').addEventListener('change', (e) => {
+    if (allResults.length) renderResults(sortResults(allResults, e.target.value));
+});
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderResults(items) {
+    const grid = document.getElementById('results-grid');
+    grid.innerHTML = '';
+
+    if (items.length === 0) {
+        grid.innerHTML = `<div class="empty-state">
+            <div style="font-size:3rem;margin-bottom:12px;">🔍</div>
+            <h3 style="font-weight:700;font-size:1.05rem;color:#334155;">找不到相關結果</h3>
+            <p style="color:#94a3b8;font-size:0.85rem;margin-top:6px;">請嘗試其他關鍵字</p>
+        </div>`;
         return;
     }
-    const accounts = msalInstance.getAllAccounts();
-    localStorage.clear();
-    sessionStorage.clear();
 
-    if (accounts.length > 0) {
-        try {
-            // popup 登出，讓使用者可以選擇切換帳號
-            await msalInstance.logoutPopup({
-                account: accounts[0],
-                postLogoutRedirectUri: window.location.href
-            });
-        } catch (e) {
-            // popup 被封鎖時改用跳轉登出
-            msalInstance.logoutRedirect({
-                account: accounts[0],
-                postLogoutRedirectUri: window.location.href
-            });
+    items.forEach(item => {
+        const type    = getFileType(item);
+        const meta    = TYPE_META[type];
+        const date    = new Date(item.lastModifiedDateTime).toLocaleDateString('zh-TW');
+        const url     = item._source === 'onenote'
+                        ? (item.links?.oneNoteWebUrl?.href || '#')
+                        : (item.webUrl || '#');
+        const size    = item.size ? `${(item.size/1024).toFixed(0)} KB` : '';
+
+        const card = document.createElement('div');
+        card.className = `result-card type-${type}`;
+        card.onclick = () => window.open(url, '_blank');
+        card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="card-type-badge ${meta.badgeClass}">${meta.label}</span>
+                <span style="font-size:0.72rem;color:#94a3b8;">🗓 ${date}</span>
+            </div>
+            <p class="card-title">${escapeHtml(item.title || '無標題')}</p>
+            <div class="card-meta">
+                ${item._source === 'onedrive' ? `<span>☁️ OneDrive</span>` : `<span>📒 OneNote</span>`}
+                ${size ? `<span>·</span><span>${size}</span>` : ''}
+            </div>
+            <div class="card-open">
+                <span>開啟${item._source === 'onenote' ? '筆記' : '檔案'}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </div>`;
+        grid.appendChild(card);
+    });
+}
+
+function renderStats(items) {
+    const counts = { onenote:0, word:0, excel:0, ppt:0, pdf:0, other:0 };
+    items.forEach(i => { const t = getFileType(i); counts[t] = (counts[t]||0)+1; });
+
+    const statsRow = document.getElementById('stats-row');
+    const chipsEl  = document.getElementById('stats-chips');
+    chipsEl.innerHTML = `<span class="stat-chip" style="font-weight:600;">共 ${items.length} 筆</span>`;
+    Object.entries(counts).forEach(([type, count]) => {
+        if (count === 0) return;
+        const m = TYPE_META[type];
+        chipsEl.innerHTML += `<span class="stat-chip">${m.icon} ${count}</span>`;
+    });
+    statsRow.style.display = 'flex';
+    statsRow.classList.remove('hidden');
+}
+
+// ── MAIN SEARCH ───────────────────────────────────────────────
+document.getElementById('search-btn').addEventListener('click', async () => {
+    if (!msalInstance) return alert('請先在設定中填入 Client ID！');
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length === 0) return alert('請先登入 Microsoft 帳戶！');
+
+    const keyword   = document.getElementById('keyword').value.trim();
+    const startDate = document.getElementById('start-date').value;
+    const useNote   = document.getElementById('src-onenote').checked;
+    const useDrive  = document.getElementById('src-onedrive').checked;
+
+    if (!keyword) return alert('請輸入搜尋關鍵字！');
+    if (!useNote && !useDrive) return alert('請至少選擇一個搜尋來源！');
+
+    document.getElementById('results-grid').innerHTML = '';
+    document.getElementById('stats-row').style.display = 'none';
+    document.getElementById('error-bar').classList.add('hidden');
+    document.getElementById('search-btn').disabled = true;
+    setStatus('取得存取權杖...');
+
+    try {
+        const token = await getToken();
+        const tasks = [];
+
+        if (useNote)  { setStatus('搜尋 OneNote 筆記...'); tasks.push(searchOneNote(token, keyword)); }
+        if (useDrive) { setStatus('搜尋 OneDrive 檔案...'); tasks.push(searchOneDrive(token, keyword)); }
+
+        setStatus('合併結果中...');
+        const results = await Promise.allSettled(tasks);
+        let combined = [];
+        results.forEach((r, i) => {
+            if (r.status === 'fulfilled') combined = combined.concat(r.value);
+            else log(`搜尋失敗：${r.reason?.message}`, 'err');
+        });
+
+        // 日期篩選
+        if (startDate) {
+            const ts = new Date(startDate).getTime();
+            combined = combined.filter(i => new Date(i.lastModifiedDateTime).getTime() >= ts);
+            log(`日期篩選後：${combined.length} 筆`, 'info');
         }
-    } else {
-        window.location.reload();
+
+        allResults = combined;
+        const sorted = sortResults(combined, document.getElementById('sort-select').value);
+        hideStatus();
+        renderStats(combined);
+        renderResults(sorted);
+
+    } catch (e) {
+        let hint = '';
+        if (e.message.includes('403')) hint = '→ 權限未授與，請至 Azure Portal 確認 Notes.Read 與 Files.Read 已授與。';
+        else if (e.message.includes('401')) hint = '→ Token 無效，請重新登入。';
+        else if (e.message.includes('popup')) hint = '→ 彈出視窗被封鎖，請允許此網站的彈出視窗。';
+        showError(e.message, hint);
+    } finally {
+        document.getElementById('search-btn').disabled = false;
     }
 });
 
-// ── 設定面板 ────────────────────────────────────────────────
-// settings-toggle 已移除（Client ID 已內建），僅保留關閉與儲存功能
-document.getElementById('settings-close').onclick = () =>
-    document.getElementById('settings-panel').classList.add('hidden');
-document.getElementById('save-config').onclick = () => {
-    const val = configInput.value.trim() || DEFAULT_CLIENT_ID;
-    localStorage.setItem('onenote_client_id', val);
-    window.location.reload();
-};
-
-// ── UI 輔助 ─────────────────────────────────────────────────
+// ── UI HELPERS ────────────────────────────────────────────────
 function setStatus(msg) {
-    document.getElementById('status-bar').classList.remove('hidden');
+    const bar = document.getElementById('status-bar');
+    bar.classList.remove('hidden');
     document.getElementById('status-text').textContent = msg;
     document.getElementById('error-bar').classList.add('hidden');
 }
@@ -334,164 +828,13 @@ function hideStatus() {
 }
 function showError(msg, hint = '') {
     hideStatus();
-    const bar = document.getElementById('error-bar');
-    bar.classList.remove('hidden');
+    document.getElementById('error-bar').classList.remove('hidden');
     document.getElementById('error-text').textContent = msg;
     document.getElementById('error-hint').textContent = hint;
-    log(`錯誤：${msg}${hint ? ' | ' + hint : ''}`, 'err');
+    log(`錯誤：${msg}`, 'err');
 }
-
-// ── 主搜尋邏輯 ──────────────────────────────────────────────
-document.getElementById('search-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    if (!msalInstance) return alert('請先在設定中填入 Client ID！');
-
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length === 0) return alert('請先登入 Microsoft 帳戶！');
-
-    const keyword   = document.getElementById('keyword').value.trim();
-    const startDate = document.getElementById('start-date').value;
-
-    if (!keyword) return alert('請輸入搜尋關鍵字！');
-
-    // 清空舊結果
-    document.getElementById('results-grid').innerHTML = '';
-    document.getElementById('result-count').classList.add('hidden');
-    document.getElementById('error-bar').classList.add('hidden');
-    setStatus('正在取得存取權杖...');
-    log(`開始搜尋：「${keyword}」`, 'info');
-
-    try {
-        // ① 取得 Token
-        let tokenResponse;
-        try {
-            tokenResponse = await msalInstance.acquireTokenSilent({
-                ...loginRequest, account: accounts[0]
-            });
-            log('Token 靜默取得成功', 'ok');
-        } catch (silentErr) {
-            log('靜默取得失敗，改用彈出視窗: ' + silentErr.message, 'warn');
-            tokenResponse = await msalInstance.acquireTokenPopup(loginRequest);
-            log('Token 彈出取得成功', 'ok');
-        }
-        const token = tokenResponse.accessToken;
-
-        let pages = [];
-
-        // ② 嘗試 Graph API $search（僅搜尋標題）
-        // 注意：個人 Microsoft 帳號不支援 $search，商業/教育帳號才支援
-        setStatus('正在呼叫 Graph API 搜尋...');
-
-        const searchUrl = `https://graph.microsoft.com/v1.0/me/onenote/pages?$search="${encodeURIComponent(keyword)}"&$select=id,title,lastModifiedDateTime,links&$top=50`;
-        log(`搜尋 URL: ${searchUrl}`, 'info');
-
-        const res = await fetch(searchUrl, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        log(`Graph API 回應狀態：${res.status}`, res.ok ? 'ok' : 'warn');
-
-        if (res.ok) {
-            const data = await res.json();
-            pages = data.value || [];
-            log(`$search 模式找到 ${pages.length} 筆`, 'ok');
-        } else {
-            // ③ 回退：抓全部（最多200筆）並在前端過濾標題
-            const errBody = await res.text();
-            log(`$search 不支援 (${res.status})，改用前端過濾模式。回應：${errBody.substring(0, 100)}`, 'warn');
-            setStatus('改用前端過濾模式，抓取筆記中（最多 200 筆）...');
-
-            // 分頁抓取，最多 200 筆
-            let nextLink = `https://graph.microsoft.com/v1.0/me/onenote/pages?$select=id,title,lastModifiedDateTime,links&$top=100`;
-            let allPages = [];
-            let pageCount = 0;
-
-            while (nextLink && pageCount < 2) {
-                const fbRes = await fetch(nextLink, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                if (!fbRes.ok) {
-                    const fbErr = await fbRes.text();
-                    throw new Error(`無法讀取筆記列表 (${fbRes.status})：${fbErr.substring(0, 120)}`);
-                }
-                const fbData = await fbRes.json();
-                allPages = allPages.concat(fbData.value || []);
-                nextLink = fbData['@odata.nextLink'] || null;
-                pageCount++;
-                log(`已取得 ${allPages.length} 筆`, 'info');
-            }
-
-            // 前端過濾標題
-            const kw = keyword.toLowerCase();
-            pages = allPages.filter(p => p.title && p.title.toLowerCase().includes(kw));
-            log(`前端過濾後剩 ${pages.length} 筆（共掃描 ${allPages.length} 筆）`, 'ok');
-        }
-
-        // ④ 日期過濾
-        if (startDate) {
-            const startTs = new Date(startDate).getTime();
-            const before = pages.length;
-            pages = pages.filter(p => new Date(p.lastModifiedDateTime).getTime() >= startTs);
-            log(`日期過濾：${before} → ${pages.length} 筆`, 'info');
-        }
-
-        hideStatus();
-
-        // ⑤ 顯示結果
-        if (pages.length === 0) {
-            document.getElementById('results-grid').innerHTML = `
-                <div class="col-span-full text-center py-20 bg-white rounded-2xl border border-gray-200">
-                    <div class="text-5xl mb-4">🔍</div>
-                    <h3 class="text-lg font-bold text-gray-700">找不到「${keyword}」的相關筆記</h3>
-                    <p class="text-gray-400 text-sm mt-2">請嘗試其他關鍵字，或確認筆記標題是否包含此字詞</p>
-                </div>`;
-        } else {
-            const countEl = document.getElementById('result-count');
-            countEl.textContent = `找到 ${pages.length} 筆符合的筆記`;
-            countEl.classList.remove('hidden');
-            renderResults(pages);
-        }
-
-    } catch (err) {
-        let hint = '';
-        if (err.message.includes('403')) hint = '→ 可能是 Notes.Read 權限未授與，請至 Azure Portal 授與並重新登入。';
-        else if (err.message.includes('401')) hint = '→ Token 無效，請重新登入。';
-        else if (err.message.includes('popup')) hint = '→ 彈出視窗被封鎖，請允許此網頁的彈出視窗。';
-        showError(err.message, hint);
-    }
-});
-
-// ── 渲染卡片 ────────────────────────────────────────────────
-function renderResults(pages) {
-    const grid = document.getElementById('results-grid');
-    pages.forEach(page => {
-        const date  = new Date(page.lastModifiedDateTime).toLocaleDateString('zh-TW');
-        const webUrl = page.links?.oneNoteWebUrl?.href || '#';
-
-        const card = document.createElement('div');
-        card.className = 'note-card bg-white p-5 rounded-xl shadow-sm flex flex-col';
-        card.onclick = () => window.open(webUrl, '_blank');
-        card.innerHTML = `
-            <div class="flex justify-between items-center mb-3">
-                <span class="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded-full">📄 OneNote</span>
-                <span class="text-xs text-gray-400">🗓 ${date}</span>
-            </div>
-            <h3 class="font-bold text-gray-800 text-base mb-3 leading-snug">${escapeHtml(page.title || '無標題')}</h3>
-            <div class="mt-auto pt-3 border-t border-gray-100 flex items-center text-purple-600 text-sm font-medium gap-1">
-                <span>開啟筆記</span>
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-                </svg>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
-}
-
-function escapeHtml(str) {
-    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 </script>
 </body>
