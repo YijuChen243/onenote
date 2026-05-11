@@ -636,63 +636,42 @@ async function fetchOneNoteContent(item, msToken) {
     if (!r.ok) return { text: null, imgUrls: [] };
     const html = await r.text();
 
-    // 先用 regex 從原始 HTML 字串抓 img src（含相對路徑）
-    // OneNote 圖片 src 格式通常是 ../resources/xxx/content 或完整 Graph URL
+    // 用 regex 從原始字串抓 img src — 不放進 DOM，避免瀏覽器自動發送無 token 請求
     const rawImgSrcs = [];
     const imgTagRe = /<img[^>]+>/gi;
-    const srcRe = /(?:src|data-fullres-src)\s*=\s*["']([^"']+)["']/i;
+    const srcRe = /(?:data-fullres-src|src)=["']([^"']+)["']/i;
     let m;
     while ((m = imgTagRe.exec(html)) !== null) {
-        const tag = m[0];
-        log('IMG tag: ' + tag.substring(0, 120), 'info');
-        const sm = srcRe.exec(tag);
-        if (sm) rawImgSrcs.push(sm[1]);
+        const sm = srcRe.exec(m[0]);
+        if (sm) {
+            rawImgSrcs.push(sm[1]);
+            log('找到圖片: ' + sm[1].substring(sm[1].lastIndexOf('/resources/')), 'info');
+        }
     }
 
-    // URL 處理：src 已是完整 Graph URL，但可能是 /users('email') 格式，直接使用
-    // 若是相對路徑，轉成 /me/onenote/resources/xxx/content
+    // 統一轉成 /me/onenote/resources/xxx/content 格式（移除 users email 部分）
     const imgUrls = rawImgSrcs.map(src => {
-        if (src.startsWith('https://')) return src;  // 已是完整 URL，直接用
-        // 相對路徑：../resources/xxx/content
-        const match = src.match(/resources\/([^\/]+)\/content/);
-        if (match) return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + match[1] + '/content';
+        const ri = src.indexOf('/onenote/resources/');
+        if (ri >= 0) return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + src.substring(ri + 19);
         return null;
     }).filter(Boolean);
 
-    log('OneNote 找到 ' + rawImgSrcs.length + ' 個 img src，有效 URL：' + imgUrls.length + ' 個', imgUrls.length > 0 ? 'ok' : 'warn');
+    log('OneNote 圖片：' + rawImgSrcs.length + ' 個找到，' + imgUrls.length + ' 個可下載', imgUrls.length > 0 ? 'ok' : 'warn');
 
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const text = tmp.innerText.substring(0, 6000);
+    // 純文字：regex 去掉 HTML tag，不放進 DOM
+    const text = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                     .replace(/<[^>]+>/g, ' ')
+                     .replace(/\s+/g, ' ').trim().substring(0, 6000);
     return { text, imgUrls };
 }
-
 // 下載圖片並轉 base64（需帶 token）
 async function fetchImgAsBase64(url, msToken) {
     try {
-        // users('email')/onenote → me/onenote
-        let normalizedUrl = url;
-        const userMatch = url.indexOf("/onenote/resources/");
-        if (userMatch > 0) {
-            normalizedUrl = 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + url.substring(userMatch + 19);
-        }
-        log('下載圖片：' + normalizedUrl, 'info');
-        const r = await fetch(normalizedUrl, { headers: { Authorization: 'Bearer ' + msToken } });
-        log('圖片回應：' + r.status + ' ' + (r.headers.get('content-type')||''), r.ok ? 'ok' : 'warn');
-        if (!r.ok) {
-            log('400 錯誤，嘗試原始 URL', 'warn');
-            const r2 = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
-            log('原始 URL 回應：' + r2.status, r2.ok ? 'ok' : 'warn');
-            if (!r2.ok) return null;
-            const blob2 = await r2.blob();
-            if (!blob2.type.startsWith('image/')) return null;
-            return new Promise(res => {
-                const reader = new FileReader();
-                reader.onload = () => res({ dataUrl: reader.result, b64: reader.result.split(',')[1], mimeType: blob2.type });
-                reader.onerror = () => res(null);
-                reader.readAsDataURL(blob2);
-            });
-        }
+        // URL 已由 fetchOneNoteContent 正規化為 /me/onenote/resources/xxx/content
+        log('下載圖片: ' + url.substring(url.indexOf('/resources/')), 'info');
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + msToken } });
+        log('圖片回應: ' + r.status + ' ' + (r.headers.get('content-type')||''), r.ok ? 'ok' : 'warn');
+        if (!r.ok) return null;
         const blob = await r.blob();
         if (!blob.type.startsWith('image/')) {
             log('非圖片類型：' + blob.type, 'warn');
