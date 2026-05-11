@@ -660,22 +660,79 @@ async function searchOneNote(token, keyword) {
 
 // ── SEARCH: OneDrive ─────────────────────────────────────────
 async function searchOneDrive(token, keyword) {
-    log('搜尋 OneDrive...', 'info');
-    // Graph search API — 支援全文搜尋檔名
-    const url = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=50`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    log('搜尋 OneDrive（方法1：search API）...', 'info');
+
+    // 方法1：search API（商業帳號有效，部分個人帳號也支援）
+    const searchUrl = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(keyword)}')?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=100&$orderby=lastModifiedDateTime desc`;
+    const res = await fetch(searchUrl, { headers: { Authorization: `Bearer ${token}` } });
+
+    if (res.ok) {
+        const data = await res.json();
+        log(`OneDrive search API 原始回傳：${(data.value||[]).length} 筆（含資料夾）`, 'info');
+        const files = (data.value || [])
+            .filter(i => i.file)
+            .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+        log(`OneDrive search API 找到 ${files.length} 個檔案`, 'ok');
+
+        // 如果找到就直接回傳
+        if (files.length > 0) return files;
+        // 若結果為 0，也許是個人帳號 search 不支援中文，改用 fallback
+        log('search API 回傳 0 筆，改用 fallback（列舉所有檔案 → 前端篩選）...', 'warn');
+    } else {
+        const errText = await res.text();
+        log(`OneDrive search API 失敗 (${res.status})，改用 fallback。錯誤：${errText.substring(0,120)}`, 'warn');
+    }
+
+    // 方法2 fallback：列舉所有檔案，前端做關鍵字篩選（個人帳號相容）
+    return await searchOneDriveFallback(token, keyword);
+}
+
+async function searchOneDriveFallback(token, keyword) {
+    log('OneDrive fallback：遞迴列舉檔案中...', 'info');
+    const kw = keyword.toLowerCase();
+    let allFiles = [];
+
+    // 先抓根目錄最多 200 筆
+    const listUrl = `https://graph.microsoft.com/v1.0/me/drive/root/children?$select=id,name,lastModifiedDateTime,webUrl,file,folder,size&$top=200`;
+    const res = await fetch(listUrl, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) {
-        const err = await res.text();
-        log(`OneDrive 搜尋失敗 (${res.status}): ${err.substring(0,100)}`, 'err');
-        throw new Error(`OneDrive 搜尋失敗 (${res.status})`);
+        const errText = await res.text();
+        log(`OneDrive 列舉失敗 (${res.status}): ${errText.substring(0,120)}`, 'err');
+        throw new Error(`OneDrive 無法存取 (${res.status})。請確認 Files.Read 權限已授與。`);
     }
     const data = await res.json();
-    // 只保留有 file 屬性的（排除資料夾）
-    const files = (data.value || [])
-        .filter(i => i.file)
+    const items = data.value || [];
+    log(`根目錄共 ${items.length} 個項目`, 'info');
+
+    // 篩選檔案（排除資料夾），關鍵字比對檔名
+    const rootFiles = items
+        .filter(i => i.file && i.name.toLowerCase().includes(kw))
         .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
-    log(`OneDrive 找到 ${files.length} 個檔案`, 'ok');
-    return files;
+
+    allFiles = allFiles.concat(rootFiles);
+
+    // 對子資料夾進行一層搜尋
+    const folders = items.filter(i => i.folder);
+    log(`有 ${folders.length} 個子資料夾，逐一搜尋...`, 'info');
+
+    for (const folder of folders) {
+        try {
+            const fUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${folder.id}/children?$select=id,name,lastModifiedDateTime,webUrl,file,size&$top=200`;
+            const fr = await fetch(fUrl, { headers: { Authorization: `Bearer ${token}` } });
+            if (!fr.ok) continue;
+            const fd = await fr.json();
+            const matched = (fd.value || [])
+                .filter(i => i.file && i.name.toLowerCase().includes(kw))
+                .map(i => ({ ...i, _source: 'onedrive', title: i.name }));
+            if (matched.length > 0) log(`資料夾「${folder.name}」找到 ${matched.length} 筆`, 'ok');
+            allFiles = allFiles.concat(matched);
+        } catch (e) {
+            log(`資料夾「${folder.name}」搜尋失敗：${e.message}`, 'warn');
+        }
+    }
+
+    log(`OneDrive fallback 共找到 ${allFiles.length} 個符合檔案`, 'ok');
+    return allFiles;
 }
 
 // ── SORT ─────────────────────────────────────────────────────
@@ -787,10 +844,28 @@ document.getElementById('search-btn').addEventListener('click', async () => {
         setStatus('合併結果中...');
         const results = await Promise.allSettled(tasks);
         let combined = [];
-        results.forEach((r, i) => {
-            if (r.status === 'fulfilled') combined = combined.concat(r.value);
-            else log(`搜尋失敗：${r.reason?.message}`, 'err');
+        const warnings = [];
+        results.forEach((r) => {
+            if (r.status === 'fulfilled') {
+                combined = combined.concat(r.value);
+            } else {
+                const msg = r.reason?.message || '未知錯誤';
+                log(`搜尋來源失敗：${msg}`, 'err');
+                warnings.push(msg);
+            }
         });
+        if (warnings.length > 0) {
+            const warnEl = document.getElementById('error-bar');
+            warnEl.classList.remove('hidden');
+            warnEl.style.background = '#fffbeb';
+            warnEl.style.borderColor = '#fcd34d';
+            document.getElementById('error-text').style.color = '#d97706';
+            document.getElementById('error-text').textContent = '⚠️ 部分來源失敗：' + warnings.join('；');
+            const hint = warnings.some(w => w.includes('403') || w.includes('無法存取'))
+                ? '→ 請至 Azure Portal 確認 Files.Read 權限已授與，學校帳號需管理員同意。'
+                : warnings.some(w => w.includes('401')) ? '→ Token 已過期，請重新登入。' : '';
+            document.getElementById('error-hint').textContent = hint;
+        }
 
         // 日期篩選
         if (startDate) {
