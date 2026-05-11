@@ -636,42 +636,47 @@ async function fetchOneNoteContent(item, msToken) {
     if (!r.ok) return { text: null, imgUrls: [] };
     const html = await r.text();
 
-    // regex 抓所有 img src，不放進 DOM
+    // 抓所有 img tag，不放進 DOM
+    // 注意：src 用雙引號包住，但內容含單引號 users('email')
+    // 所以 regex 只抓雙引號版本
     const rawImgSrcs = [];
     const imgTagRe = /<img[^>]+>/gi;
-    const srcRe = /(?:data-fullres-src|src)=["']([^"']+)["']/i;
     let m;
     while ((m = imgTagRe.exec(html)) !== null) {
-        log('RAW IMG TAG: ' + m[0], 'info'); // 印完整 img tag
-        const sm = srcRe.exec(m[0]);
-        if (sm) {
-            rawImgSrcs.push(sm[1]);
+        const tag = m[0];
+        // 只抓 src="..." (雙引號) 避免被單引號截斷
+        const srcMatch = tag.match(/\bsrc="([^"]+)"/i);
+        // 優先用 data-fullres-src（解析度更高）
+        const fullresMatch = tag.match(/\bdata-fullres-src="([^"]+)"/i);
+        const src = (fullresMatch && fullresMatch[1]) || (srcMatch && srcMatch[1]);
+        if (src) {
+            rawImgSrcs.push(src);
+            log('圖片src(長度' + src.length + '): ...' + src.slice(-60), 'info');
         }
     }
 
-    // 轉成 /me/onenote/resources/ 格式
+    // 轉成 /me/onenote/resources/ID/$value 格式
     const imgUrls = rawImgSrcs.map(src => {
         if (!src || src.startsWith('data:')) return null;
-        log('src長度:' + src.length + ' indexOf結果:' + src.indexOf('/onenote/resources/'), 'info');
-        log('src後50字:' + src.slice(-50), 'info');
+        // 找到 /onenote/resources/ 的位置，取後面的部分
         const ri = src.indexOf('/onenote/resources/');
         if (ri >= 0) {
-            const resourcePart = src.substring(ri + 19);
-            log('resourcePart: ' + resourcePart, 'info');
+            const resourcePart = src.substring(ri + 19); // 19 = '/onenote/resources/'.length
             return 'https://graph.microsoft.com/v1.0/me/onenote/resources/' + resourcePart;
         }
         if (src.startsWith('https://')) return src;
         return null;
     }).filter(Boolean);
 
-    log('OneNote 圖片：' + rawImgSrcs.length + ' 個找到，' + imgUrls.length + ' 個可下載', imgUrls.length > 0 ? 'ok' : 'warn');
-    if (imgUrls.length > 0) log('正規化URL後50字: ' + imgUrls[0].slice(-50), 'info');
+    log('OneNote 圖片：' + rawImgSrcs.length + ' 個，可下載：' + imgUrls.length + ' 個', imgUrls.length > 0 ? 'ok' : 'warn');
+    if (imgUrls.length > 0) log('正規化後: ' + imgUrls[0].slice(-80), 'info');
 
-    // 純文字
-    const text = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                     .replace(/<[^>]+>/g, ' ')
-                     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-                     .replace(/\s+/g, ' ').trim().substring(0, 6000);
+    // 純文字（regex 去 tag，不放進 DOM）
+    const text = html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/\s+/g, ' ').trim().substring(0, 6000);
     return { text, imgUrls };
 }
 // 下載圖片並轉 base64（需帶 token）
